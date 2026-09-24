@@ -1,5 +1,5 @@
 name: "letmesee"
-version: "1.0.1"
+version: "${version}"
 main: "com.letmesee.LetMeSee"
 api-version: "1.20"
 folia-supported: true

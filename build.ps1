@@ -2,14 +2,14 @@ param([switch]$Clean)
 
 $ErrorActionPreference = "Stop"
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-[System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
 
+$Version = "1.0.1"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $BuildDir = Join-Path $ProjectRoot "build"
 $ClassesDir = Join-Path $BuildDir "classes"
 $LibsDir = Join-Path $BuildDir "libs"
 $DepsDir = Join-Path $BuildDir "deps"
-$TargetJar = Join-Path $LibsDir "letmesee-1.0.0.jar"
+$TargetJar = Join-Path $LibsDir "letmesee-$Version.jar"
 
 if ($Clean -and (Test-Path $BuildDir)) {
     Remove-Item -LiteralPath $BuildDir -Recurse -Force
@@ -85,7 +85,10 @@ if ($LASTEXITCODE -ne 0) { Write-Host "Compilation failed!" -ForegroundColor Red
 Write-Host "Compilation successful!" -ForegroundColor Green
 
 Write-Host "=== Packaging ==="
-Copy-Item (Join-Path $ProjectRoot "src\main\resources\plugin.yml") (Join-Path $ClassesDir "plugin.yml") -Force
+$pluginYml = [System.IO.File]::ReadAllText((Join-Path $ProjectRoot "src\main\resources\plugin.yml"))
+$pluginYml = $pluginYml.Replace('${version}', $Version)
+$utf8 = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText((Join-Path $ClassesDir "plugin.yml"), $pluginYml, $utf8)
 Push-Location $ClassesDir
 try {
     jar -cf $TargetJar *

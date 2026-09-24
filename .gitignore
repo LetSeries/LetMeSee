@@ -1,9 +1,8 @@
 .gradle/
 build/
 !build/libs/*.jar
-# Keep the Gradle wrapper jar tracked so GitHub Actions can run the wrapper.
+# Wrapper jar is not tracked; CI installs Gradle 8.10 itself.
 gradle/wrapper/*.jar
-.gradle/
 *.iml
 .idea/
 out/
