@@ -69,11 +69,11 @@ public class LMSCommand implements CommandExecutor {
 
         int x, y, z;
         try {
-            x = Integer.parseInt(args[1]);
-            y = Integer.parseInt(args[2]);
-            z = Integer.parseInt(args[3]);
+            x = parseCoordinate(args[1]);
+            y = parseCoordinate(args[2]);
+            z = parseCoordinate(args[3]);
         } catch (NumberFormatException e) {
-            player.sendMessage("§c坐标必须为整数");
+            player.sendMessage("§c坐标必须为 -30000000 到 30000000 之间的整数");
             return true;
         }
 
@@ -84,6 +84,23 @@ public class LMSCommand implements CommandExecutor {
 
         openContainer(player, new Location(world, x, y, z));
         return true;
+    }
+
+    /**
+     * 解析坐标分量。拒绝非数字、越界整数与超出世界边境范围的值，
+     * 调用方统一按 NumberFormatException 处理。
+     */
+    private static int parseCoordinate(String arg) throws NumberFormatException {
+        long value;
+        try {
+            value = Long.parseLong(arg.trim());
+        } catch (NumberFormatException e) {
+            throw new NumberFormatException("not a number: " + arg);
+        }
+        if (value < -30_000_000L || value > 30_000_000L) {
+            throw new NumberFormatException("out of range: " + arg);
+        }
+        return (int) value;
     }
 
     private void openContainer(Player player, Location targetLocation) {
