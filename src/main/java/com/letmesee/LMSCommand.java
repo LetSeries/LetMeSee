@@ -3,15 +3,16 @@ package com.letmesee;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Nameable;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
-import org.bukkit.block.Container;
 import org.bukkit.block.EnderChest;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.event.inventory.InventoryType;
@@ -127,15 +128,19 @@ public class LMSCommand implements CommandExecutor {
     private void openLegacy(Player player, Location targetLocation, Block block) {
         BlockState state = block.getState();
 
-        if (!(state instanceof Container container)) {
+        if (!(state instanceof BlockInventoryHolder holder)) {
             player.sendMessage("§c该位置没有容器");
             return;
         }
 
-        Inventory targetInv = container.getInventory();
+        Inventory targetInv = holder.getInventory();
+        if (targetInv == null) {
+            player.sendMessage("§c无法读取该容器的物品");
+            return;
+        }
         ItemStack[] contents = ContainerSnapshots.cloneContents(targetInv.getContents());
 
-        String customName = container.getCustomName();
+        String customName = state instanceof Nameable nameable ? nameable.getCustomName() : null;
         String containerName = (customName == null || customName.isEmpty())
             ? getContainerDisplayName(block)
             : customName;
@@ -183,6 +188,11 @@ public class LMSCommand implements CommandExecutor {
             case DROPPER -> "投掷器";
             case DISPENSER -> "发射器";
             case BREWING_STAND -> "酿造台";
+            case CRAFTER -> "合成器";
+            case CHISELED_BOOKSHELF -> "雕纹书架";
+            case LECTERN -> "讲台";
+            case JUKEBOX -> "唱片机";
+            case DECORATED_POT -> "饰纹陶罐";
             default -> block.getType().name();
         };
     }

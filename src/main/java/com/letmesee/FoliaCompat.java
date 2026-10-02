@@ -2,10 +2,11 @@ package com.letmesee;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Nameable;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
-import org.bukkit.block.Container;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.event.inventory.InventoryType;
@@ -56,16 +57,21 @@ public final class FoliaCompat {
             Block block = targetLocation.getBlock();
             BlockState state = block.getState();
 
-            if (!(state instanceof Container container)) {
+            if (!(state instanceof BlockInventoryHolder holder)) {
                 runOnPlayer(plugin, player, () ->
                     player.sendMessage("§c该位置没有容器"));
                 return;
             }
 
-            Inventory targetInv = container.getInventory();
+            Inventory targetInv = holder.getInventory();
+            if (targetInv == null) {
+                runOnPlayer(plugin, player, () ->
+                    player.sendMessage("§c无法读取该容器的物品"));
+                return;
+            }
             ItemStack[] contents = ContainerSnapshots.cloneContents(targetInv.getContents());
 
-            Component customName = container.customName();
+            Component customName = state instanceof Nameable nameable ? nameable.customName() : null;
             Component body = customName == null || Component.empty().equals(customName)
                 ? Component.text(snapshot.displayName())
                 : customName;
