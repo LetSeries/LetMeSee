@@ -35,7 +35,7 @@ jobs:
       - name: Resolve version
         id: version
         run: |
-          VERSION=$(gradle -q printVersion --no-daemon | tail -1)
+          VERSION=$(grep -oP '^version = "\K[^"]+' build.gradle.kts)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION-$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
 

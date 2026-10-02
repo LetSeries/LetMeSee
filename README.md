@@ -1,6 +1,6 @@
-# LetMeSee — Minecraft Folia 只读容器插件
+# LetMeSee — Minecraft 只读容器插件
 
-一个轻量级 Minecraft Folia/Paper 插件，允许 OP 通过指令 **只读** 查看任意坐标上的容器物品，绕过 Lands、QuickShop 等保护插件的限制。
+一个轻量级 Minecraft 插件（Folia / Paper / Spigot 均支持），允许 OP 通过指令 **只读** 查看任意坐标上的容器物品，绕过 Lands、QuickShop 等保护插件的限制。
 
 ## 特性
 
