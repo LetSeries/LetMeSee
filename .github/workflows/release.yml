@@ -1,0 +1,53 @@
+name: Release
+
+# main 分支每次 push 自动构建并发布 Release，无需手动打 tag。
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
+
+      - name: Build plugin
+        run: gradle clean build --no-daemon
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION=$(gradle -q printVersion --no-daemon | tail -1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION-$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: letmesee ${{ steps.version.outputs.tag }} (${{ github.sha }})
+          body: |
+            自动构建发布。
+
+            - 提交: ${{ github.sha }}
+            - 分支: ${{ github.ref_name }}
+          files: build/libs/*.jar
+          fail_on_unmatched_files: true

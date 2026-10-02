@@ -31,3 +31,10 @@ jobs:
 
       - name: Build plugin
         run: gradle clean build --no-daemon
+
+      - name: Upload plugin jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: letmesee-jar
+          path: build/libs/*.jar
+          if-no-files-found: error

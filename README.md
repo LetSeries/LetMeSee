@@ -59,7 +59,10 @@
 
 ### GitHub Actions
 
-- 推送代码或创建 Pull Request 时，`Build` workflow 会自动构建检查
+- 推送代码或创建 Pull Request 时，`Build` workflow 会自动构建检查，
+  构建产物（jar）可在 Actions 页面的 Artifacts 中下载
+- `main` 分支每次推送都会触发 `Release` workflow，自动构建并发布 GitHub Release
+ （tag 格式 `v<版本>-<构建号>`，jar 作为附件上传），无需手动打 tag
 - CI 使用 GitHub Actions 提供的 Gradle 8.10，不依赖本地 Gradle Wrapper
 
 ### 手动编译（无需 Gradle）

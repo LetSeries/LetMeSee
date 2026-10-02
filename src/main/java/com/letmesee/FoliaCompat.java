@@ -19,40 +19,26 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
  * Folia / Paper 专属逻辑隔离层。
  *
  * <p>本类直接引用 {@code Bukkit.getRegionScheduler()}、{@code Player.getScheduler()}
- * 与 Adventure API，在 Spigot / CraftBukkit 上这些符号不存在。
- * 调用方必须先经 {@link #isSupported()} 确认后再进入，Spigot 路径永远不要触碰本类，
- * 否则会在运行时抛出 {@link NoSuchMethodError} / {@link NoClassDefFoundError}。</p>
+ * 与 Adventure API，在 Spigot / CraftBukkit 上这些符号不存在，
+ * <b>连类加载都会失败</b>。调用方只能经 {@code ServerCompat} 反射进入，
+ * 绝不能直接引用本类（包括 {@code FoliaCompat.isSupported()} 这类静态调用）。</p>
  */
 public final class FoliaCompat {
-
-    private static final Boolean SUPPORTED = detect();
 
     private FoliaCompat() {
     }
 
-    public static boolean isSupported() {
-        return SUPPORTED;
-    }
-
-    private static boolean detect() {
-        try {
-            Bukkit.class.getMethod("getRegionScheduler");
-            Player.class.getMethod("getScheduler");
-            Class.forName("net.kyori.adventure.text.Component");
-            return true;
-        } catch (NoSuchMethodException | ClassNotFoundException e) {
-            return false;
-        }
-    }
-
     /**
-     * 在目标区域线程读取容器并克隆，再切回玩家线程打开只读视图。
+     * 在目标区域线程读取容器并克隆，组装只读视图后切回玩家线程打开。
      *
-     * @param snapshot 预先在主线程采集的只读快照（世界名、坐标、方块类型名）
-     * @param opener   在玩家线程打开视图的回调，参数为克隆好的物品数组与展示用标题
+     * <p>公开方法签名只含 Bukkit / JDK 类型，避免调用方加载期被 Adventure
+     * 方法签名污染；Adventure 只出现在方法体内部。</p>
+     *
+     * @param displayName 预先在调用线程采集的容器展示名
+     * @param opener      在玩家线程打开视图的回调，收到已建好的只读视图
      */
     public static void openContainer(JavaPlugin plugin, Player player, Location targetLocation,
-            ContainerSnapshot snapshot, ViewOpener opener) {
+            String displayName, ServerCompat.FoliaOpener opener) {
         Bukkit.getRegionScheduler().run(plugin, targetLocation, task -> {
             Block block = targetLocation.getBlock();
             BlockState state = block.getState();
@@ -73,17 +59,20 @@ public final class FoliaCompat {
 
             Component customName = state instanceof Nameable nameable ? nameable.customName() : null;
             Component body = customName == null || Component.empty().equals(customName)
-                ? Component.text(snapshot.displayName())
+                ? Component.text(displayName)
                 : customName;
             Component title = Component.text("[只读] ", NamedTextColor.GRAY).append(body);
             String plainName = PlainTextComponentSerializer.plainText().serialize(body);
 
             InventoryType type = targetInv.getType();
-            int size = targetInv.getSize();
+            Inventory viewInv = type == InventoryType.CHEST
+                ? Bukkit.createInventory(new ReadOnlyHolder(), targetInv.getSize(), title)
+                : Bukkit.createInventory(new ReadOnlyHolder(), type, title);
+            viewInv.setContents(contents);
 
             ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(), plainName);
 
-            runOnPlayer(plugin, player, () -> opener.open(contents, type, size, title, plainName));
+            runOnPlayer(plugin, player, () -> opener.open(viewInv, plainName));
         });
     }
 
@@ -93,15 +82,5 @@ public final class FoliaCompat {
                 action.run();
             }
         }, null);
-    }
-
-    /** 预先在调用线程采集的容器展示信息，避免跨线程触碰 Block。 */
-    public record ContainerSnapshot(String displayName) {
-    }
-
-    /** 在玩家线程打开只读视图的回调。 */
-    @FunctionalInterface
-    public interface ViewOpener {
-        void open(ItemStack[] contents, InventoryType type, int size, Component title, String plainName);
     }
 }

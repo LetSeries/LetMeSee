@@ -101,25 +101,18 @@ public class LMSCommand implements CommandExecutor {
             return;
         }
 
-        if (FoliaCompat.isSupported()) {
+        if (ServerCompat.isFolia()) {
             openFolia(player, targetLocation, probe);
         } else {
             openLegacy(player, targetLocation, probe);
         }
     }
 
-    /** Folia / Paper 路径：区域线程读取，回到玩家线程打开。 */
+    /** Folia / Paper 路径：经 ServerCompat 反射进入区域线程读取，回到玩家线程打开。 */
     private void openFolia(Player player, Location targetLocation, Block probe) {
-        FoliaCompat.ContainerSnapshot snapshot =
-            new FoliaCompat.ContainerSnapshot(getContainerDisplayName(probe));
-        FoliaCompat.openContainer(plugin, player, targetLocation, snapshot,
-            (contents, type, size, title, plainName) -> {
-                Inventory viewInv = type == InventoryType.CHEST
-                    ? Bukkit.createInventory(new ReadOnlyHolder(), size, title)
-                    : Bukkit.createInventory(new ReadOnlyHolder(), type, title);
-                viewInv.setContents(contents);
-                player.openInventory(viewInv);
-                player.sendMessage("§a已打开 " + plainName + " 的只读视图");
+        // 注意：此处绝不能直接引用 FoliaCompat，否则 Spigot 上类加载即崩。
+        ServerCompat.openFoliaContainer(plugin, player, targetLocation,
+            getContainerDisplayName(probe), plainName -> {
             });
     }
 
