@@ -44,24 +44,26 @@ public class LMSTabCompleter implements TabCompleter {
             return List.of();
         }
 
-        Location loc = player.getLocation();
         String current = args[args.length - 1];
-        String suggestion = switch (args.length) {
-            case 2 -> Integer.toString(loc.getBlockX());
-            case 3 -> Integer.toString(loc.getBlockY());
-            case 4 -> Integer.toString(loc.getBlockZ());
-            default -> null;
-        };
-        if (suggestion == null) {
-            return List.of();
-        }
         List<String> result = new ArrayList<>();
-        if (suggestion.startsWith(current)) {
-            result.add(suggestion);
-        }
-        // 玩家输入 ~ 开头时，提示 ~（使用当前位置对应分量）
+        // ~ 不需要读取玩家位置，跨区也能提示
         if ("~".startsWith(current)) {
             result.add("~");
+        }
+        // 读取玩家位置可能跨区失败，失败时只保留 ~ 建议
+        try {
+            Location loc = player.getLocation();
+            String suggestion = switch (args.length) {
+                case 2 -> Integer.toString(loc.getBlockX());
+                case 3 -> Integer.toString(loc.getBlockY());
+                case 4 -> Integer.toString(loc.getBlockZ());
+                default -> null;
+            };
+            if (suggestion != null && suggestion.startsWith(current)) {
+                result.add(suggestion);
+            }
+        } catch (IllegalStateException e) {
+            // 玩家不在当前区域：只返回 ~，不刷屏
         }
         return result;
     }

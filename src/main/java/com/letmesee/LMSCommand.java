@@ -60,6 +60,11 @@ public class LMSCommand implements CommandExecutor {
             return true;
         }
 
+        if (args.length > 4) {
+            player.sendMessage("§c参数过多，用法: /lms <世界> <X> <Y> <Z>");
+            return true;
+        }
+
         World world = Bukkit.getWorld(args[0]);
         if (world == null) {
             player.sendMessage("§c未找到世界: " + args[0]);
