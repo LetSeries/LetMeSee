@@ -3,7 +3,7 @@ param([switch]$Clean)
 $ErrorActionPreference = "Stop"
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 
-$Version = "1.0.2"
+$Version = "1.0.3"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $BuildDir = Join-Path $ProjectRoot "build"
 $ClassesDir = Join-Path $BuildDir "classes"

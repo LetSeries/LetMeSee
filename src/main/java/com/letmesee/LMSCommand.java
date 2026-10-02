@@ -91,8 +91,7 @@ public class LMSCommand implements CommandExecutor {
         // 一切读取都在区域线程（FoliaCompat）或同线程（Spigot legacy）内完成。
         if (ServerCompat.isFolia()) {
             // 此处绝不能直接引用 FoliaCompat，否则 Spigot 上类加载即崩。
-            ServerCompat.openFoliaContainer(plugin, player, targetLocation, plainName -> {
-            });
+            ServerCompat.openFoliaContainer(plugin, player, targetLocation);
             return;
         }
 
@@ -101,9 +100,7 @@ public class LMSCommand implements CommandExecutor {
             block = targetLocation.getBlock();
         } catch (Exception e) {
             plugin.getLogger().warning("[LetMeSee] 无法读取 "
-                + targetLocation.getWorld().getName()
-                + " (" + targetLocation.getBlockX() + "," + targetLocation.getBlockY() + ","
-                + targetLocation.getBlockZ() + "): " + e);
+                + ContainerSnapshots.describe(targetLocation) + ": " + e);
             player.sendMessage("§c无法读取该位置，请稍后重试");
             return;
         }

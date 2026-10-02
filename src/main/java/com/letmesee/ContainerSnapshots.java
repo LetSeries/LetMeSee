@@ -26,9 +26,13 @@ public final class ContainerSnapshots {
     public static void audit(JavaPlugin plugin, Player player, Location location,
             String blockType, String containerName) {
         plugin.getLogger().info("[审计] " + player.getName() + "(" + player.getUniqueId() + ") 查看了 "
-            + location.getWorld().getName()
+            + describe(location) + " " + blockType + "[" + containerName + "]");
+    }
+
+    /** 只读 Location 坐标，不触碰方块，任意线程可调用。 */
+    public static String describe(Location location) {
+        return location.getWorld().getName()
             + " (" + location.getBlockX() + "," + location.getBlockY() + ","
-            + location.getBlockZ() + ") "
-            + blockType + "[" + containerName + "]");
+            + location.getBlockZ() + ")";
     }
 }

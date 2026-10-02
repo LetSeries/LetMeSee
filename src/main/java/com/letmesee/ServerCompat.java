@@ -43,11 +43,9 @@ public final class ServerCompat {
      *
      * <p>调用线程不触碰目标方块，一切读取都在区域线程内完成。
      * 反射失败时给玩家友好提示，不抛异常。</p>
-     *
-     * @param onOpened 在玩家线程打开视图后的回调，参数为展示用纯文本名
      */
     public static void openFoliaContainer(JavaPlugin plugin, Player player,
-            Location targetLocation, OpenedCallback onOpened) {
+            Location targetLocation) {
         try {
             Class<?> compat = Class.forName("com.letmesee.FoliaCompat");
             Method method = compat.getMethod("openContainer", JavaPlugin.class, Player.class,
@@ -56,7 +54,6 @@ public final class ServerCompat {
                 (FoliaOpener) (viewInv, plainName) -> {
                     player.openInventory(viewInv);
                     player.sendMessage("§a已打开 " + plainName + " 的只读视图");
-                    onOpened.onOpened(plainName);
                 });
         } catch (ReflectiveOperationException e) {
             plugin.getLogger().warning("[LetMeSee] Folia 模式进入失败，已取消本次查看: " + e);
@@ -64,15 +61,9 @@ public final class ServerCompat {
         }
     }
 
-    /** 在玩家线程打开只读视图后的回调（签名单含 Bukkit/JDK 类型）。 */
+    /** 在玩家线程打开只读视图的回调（签名单含 Bukkit/JDK 类型）。 */
     @FunctionalInterface
     public interface FoliaOpener {
         void open(org.bukkit.inventory.Inventory viewInv, String plainName);
-    }
-
-    /** 打开成功回调。 */
-    @FunctionalInterface
-    public interface OpenedCallback {
-        void onOpened(String plainName);
     }
 }

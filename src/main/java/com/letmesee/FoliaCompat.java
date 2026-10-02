@@ -45,7 +45,7 @@ public final class FoliaCompat {
                 readAndOpen(plugin, player, targetLocation, opener);
             } catch (Exception e) {
                 plugin.getLogger().warning("[LetMeSee] 读取容器失败 "
-                    + describe(targetLocation) + ": " + e);
+                    + ContainerSnapshots.describe(targetLocation) + ": " + e);
                 runOnPlayer(plugin, player, () ->
                     player.sendMessage("§c读取容器失败，请稍后重试"));
             }
@@ -94,13 +94,6 @@ public final class FoliaCompat {
         ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(), plainName);
 
         runOnPlayer(plugin, player, () -> opener.open(viewInv, plainName));
-    }
-
-    /** 只读 Location 坐标，不触碰方块，任意线程可调用。 */
-    private static String describe(Location location) {
-        return location.getWorld().getName()
-            + " (" + location.getBlockX() + "," + location.getBlockY() + ","
-            + location.getBlockZ() + ")";
     }
 
     private static void runOnPlayer(JavaPlugin plugin, Player player, Runnable action) {
