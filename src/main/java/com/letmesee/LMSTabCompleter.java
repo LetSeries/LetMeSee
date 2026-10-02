@@ -45,15 +45,24 @@ public class LMSTabCompleter implements TabCompleter {
         }
 
         Location loc = player.getLocation();
+        String current = args[args.length - 1];
         String suggestion = switch (args.length) {
             case 2 -> Integer.toString(loc.getBlockX());
             case 3 -> Integer.toString(loc.getBlockY());
             case 4 -> Integer.toString(loc.getBlockZ());
             default -> null;
         };
-        if (suggestion == null || !suggestion.startsWith(args[args.length - 1])) {
+        if (suggestion == null) {
             return List.of();
         }
-        return List.of(suggestion);
+        List<String> result = new ArrayList<>();
+        if (suggestion.startsWith(current)) {
+            result.add(suggestion);
+        }
+        // 玩家输入 ~ 开头时，提示 ~（使用当前位置对应分量）
+        if ("~".startsWith(current)) {
+            result.add("~");
+        }
+        return result;
     }
 }
