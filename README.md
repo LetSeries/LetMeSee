@@ -20,6 +20,15 @@
 
 坐标参数支持 Tab 补全（世界名、当前坐标）。
 
+## 配置（config.yml）
+
+| 项 | 默认 | 说明 |
+|----|------|------|
+| `max-target-distance` | 10 | `/lms` 准星模式最大距离，范围 1~64，非法值自动回退 |
+| `audit-log` | true | 是否在控制台记录审计日志 |
+
+修改后下次执行命令即生效，无需重启。
+
 ## 权限
 
 | 权限节点 | 默认 | 说明 |
@@ -106,6 +115,7 @@ src/main/java/com/letmesee/
 ├── FoliaCompat.java       # Folia/Paper 隔离层（区域线程读取，玩家线程打开）
 ├── ServerCompat.java      # 零依赖环境检测，经反射进入 FoliaCompat
 ├── ContainerNames.java    # 方块类型到中文名的映射（任意线程可调用）
+├── LMSConfig.java         # config.yml 视图：查看距离、审计开关
 ├── ContainerSnapshots.java# 物品克隆与审计日志（与服务端实现无关）
 ├── InventoryListener.java # 取消只读界面的点击/拖拽
 ├── LMSTabCompleter.java   # 世界名与坐标补全

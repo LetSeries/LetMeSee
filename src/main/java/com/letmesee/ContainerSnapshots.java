@@ -24,7 +24,10 @@ public final class ContainerSnapshots {
     }
 
     public static void audit(JavaPlugin plugin, Player player, Location location,
-            String blockType, String containerName) {
+            String blockType, String containerName, boolean enabled) {
+        if (!enabled) {
+            return;
+        }
         plugin.getLogger().info("[审计] " + player.getName() + "(" + player.getUniqueId() + ") 查看了 "
             + describe(location) + " " + blockType + "[" + containerName + "]");
     }

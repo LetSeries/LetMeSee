@@ -19,8 +19,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class LMSCommand implements CommandExecutor {
 
-    private static final int MAX_TARGET_DISTANCE = 10;
-
     private final JavaPlugin plugin;
 
     public LMSCommand(JavaPlugin plugin) {
@@ -40,15 +38,16 @@ public class LMSCommand implements CommandExecutor {
         }
 
         if (args.length == 0) {
+            int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
             Block targetBlock;
             try {
-                targetBlock = player.getTargetBlockExact(MAX_TARGET_DISTANCE);
+                targetBlock = player.getTargetBlockExact(maxDistance);
             } catch (IllegalStateException e) {
                 player.sendMessage("§c目标不在当前区域，请改用 /lms <世界> <X> <Y> <Z>");
                 return true;
             }
             if (targetBlock == null) {
-                player.sendMessage("§c请将准星对准一个容器（最大距离 " + MAX_TARGET_DISTANCE + " 格）");
+                player.sendMessage("§c请将准星对准一个容器（最大距离 " + maxDistance + " 格）");
                 return true;
             }
 
@@ -108,7 +107,9 @@ public class LMSCommand implements CommandExecutor {
         // 一切读取都在区域线程（FoliaCompat）或同线程（Spigot legacy）内完成。
         if (ServerCompat.isFolia()) {
             // 此处绝不能直接引用 FoliaCompat，否则 Spigot 上类加载即崩。
-            ServerCompat.openFoliaContainer(plugin, player, targetLocation);
+            // 配置在调用线程预读，区域线程内不再触碰 config。
+            ServerCompat.openFoliaContainer(plugin, player, targetLocation,
+                LMSConfig.auditEnabled(plugin.getConfig()));
             return;
         }
 
@@ -151,7 +152,8 @@ public class LMSCommand implements CommandExecutor {
             ? ContainerNames.displayName(block.getType())
             : customName;
 
-        ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(), containerName);
+        ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(),
+            containerName, LMSConfig.auditEnabled(plugin.getConfig()));
 
         InventoryType type = targetInv.getType();
         Inventory viewInv = type == InventoryType.CHEST

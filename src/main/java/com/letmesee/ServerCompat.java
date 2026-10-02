@@ -45,12 +45,12 @@ public final class ServerCompat {
      * 反射失败时给玩家友好提示，不抛异常。</p>
      */
     public static void openFoliaContainer(JavaPlugin plugin, Player player,
-            Location targetLocation) {
+            Location targetLocation, boolean auditEnabled) {
         try {
             Class<?> compat = Class.forName("com.letmesee.FoliaCompat");
             Method method = compat.getMethod("openContainer", JavaPlugin.class, Player.class,
-                Location.class, FoliaOpener.class);
-            method.invoke(null, plugin, player, targetLocation,
+                Location.class, boolean.class, FoliaOpener.class);
+            method.invoke(null, plugin, player, targetLocation, auditEnabled,
                 (FoliaOpener) (viewInv, plainName) -> {
                     player.openInventory(viewInv);
                     player.sendMessage("§a已打开 " + plainName + " 的只读视图");

@@ -39,10 +39,10 @@ public final class FoliaCompat {
      * @param opener 在玩家线程打开视图的回调，收到已建好的只读视图
      */
     public static void openContainer(JavaPlugin plugin, Player player, Location targetLocation,
-            ServerCompat.FoliaOpener opener) {
+            boolean auditEnabled, ServerCompat.FoliaOpener opener) {
         Bukkit.getRegionScheduler().run(plugin, targetLocation, task -> {
             try {
-                readAndOpen(plugin, player, targetLocation, opener);
+                readAndOpen(plugin, player, targetLocation, auditEnabled, opener);
             } catch (Exception e) {
                 plugin.getLogger().warning("[LetMeSee] 读取容器失败 "
                     + ContainerSnapshots.describe(targetLocation) + ": " + e);
@@ -53,7 +53,7 @@ public final class FoliaCompat {
     }
 
     private static void readAndOpen(JavaPlugin plugin, Player player, Location targetLocation,
-            ServerCompat.FoliaOpener opener) {
+            boolean auditEnabled, ServerCompat.FoliaOpener opener) {
         Block block = targetLocation.getBlock();
 
         if (block.getType() == Material.ENDER_CHEST) {
@@ -91,7 +91,8 @@ public final class FoliaCompat {
             : Bukkit.createInventory(new ReadOnlyHolder(), type, title);
         viewInv.setContents(contents);
 
-        ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(), plainName);
+            ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(),
+                plainName, auditEnabled);
 
         runOnPlayer(plugin, player, () -> opener.open(viewInv, plainName));
     }

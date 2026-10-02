@@ -6,6 +6,7 @@ public class LetMeSee extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        saveDefaultConfig();
         getCommand("lms").setExecutor(new LMSCommand(this));
         getCommand("lms").setTabCompleter(new LMSTabCompleter());
         getServer().getPluginManager().registerEvents(new InventoryListener(), this);
