@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.letmesee"
-version = "1.0.1"
+version = "1.0.2"
 
 repositories {
     mavenCentral()
@@ -12,6 +12,16 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
+
+    // compileOnly 不会传递给测试，测试需要显式声明 API
+    testCompileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
+    testRuntimeOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 java {

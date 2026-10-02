@@ -41,23 +41,26 @@ public final class ServerCompat {
     /**
      * 反射进入 Folia 模式的只读打开流程。
      *
-     * @param displayName 预先采集的容器展示名（跨线程不再触碰 Block）
-     * @param onOpened   在玩家线程打开视图后的回调，参数为展示用纯文本名
+     * <p>调用线程不触碰目标方块，一切读取都在区域线程内完成。
+     * 反射失败时给玩家友好提示，不抛异常。</p>
+     *
+     * @param onOpened 在玩家线程打开视图后的回调，参数为展示用纯文本名
      */
     public static void openFoliaContainer(JavaPlugin plugin, Player player,
-            Location targetLocation, String displayName, OpenedCallback onOpened) {
+            Location targetLocation, OpenedCallback onOpened) {
         try {
             Class<?> compat = Class.forName("com.letmesee.FoliaCompat");
             Method method = compat.getMethod("openContainer", JavaPlugin.class, Player.class,
-                Location.class, String.class, FoliaOpener.class);
-            method.invoke(null, plugin, player, targetLocation, displayName,
+                Location.class, FoliaOpener.class);
+            method.invoke(null, plugin, player, targetLocation,
                 (FoliaOpener) (viewInv, plainName) -> {
                     player.openInventory(viewInv);
                     player.sendMessage("§a已打开 " + plainName + " 的只读视图");
                     onOpened.onOpened(plainName);
                 });
         } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Folia 模式进入失败", e);
+            plugin.getLogger().warning("[LetMeSee] Folia 模式进入失败，已取消本次查看: " + e);
+            player.sendMessage("§c打开只读视图失败，请稍后重试");
         }
     }
 

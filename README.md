@@ -55,7 +55,7 @@
 ./gradlew build
 ```
 
-编译产物位于 `build/libs/letmesee-1.0.1.jar`
+编译产物位于 `build/libs/letmesee-1.0.2.jar`
 
 ### GitHub Actions
 
@@ -85,7 +85,7 @@ Spigot 会忽略该字段正常加载。
 
 ## 安装
 
-1. 将 `letmesee-1.0.1.jar` 放入服务器的 `plugins/` 目录
+1. 将 `letmesee-1.0.2.jar` 放入服务器的 `plugins/` 目录
 2. 重启服务器（不要用 `/reload`，会导致监听器重复注册）
 
 ## 工作原理

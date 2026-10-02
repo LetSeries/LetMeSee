@@ -7,7 +7,6 @@ import org.bukkit.Nameable;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
-import org.bukkit.block.EnderChest;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -88,37 +87,37 @@ public class LMSCommand implements CommandExecutor {
     }
 
     private void openContainer(Player player, Location targetLocation) {
-        Block probe;
-        try {
-            probe = targetLocation.getBlock();
-        } catch (Exception e) {
-            player.sendMessage("§c无法读取该位置: " + e.getClass().getSimpleName());
-            return;
-        }
-
-        if (isEnderChest(probe)) {
-            player.sendMessage("§c末影箱是玩家私有背包，不支持只读查看");
-            return;
-        }
-
+        // 注意：调用线程（玩家线程）不触碰目标方块。Folia 下目标可能位于其他区域，
+        // 一切读取都在区域线程（FoliaCompat）或同线程（Spigot legacy）内完成。
         if (ServerCompat.isFolia()) {
-            openFolia(player, targetLocation, probe);
-        } else {
-            openLegacy(player, targetLocation, probe);
-        }
-    }
-
-    /** Folia / Paper 路径：经 ServerCompat 反射进入区域线程读取，回到玩家线程打开。 */
-    private void openFolia(Player player, Location targetLocation, Block probe) {
-        // 注意：此处绝不能直接引用 FoliaCompat，否则 Spigot 上类加载即崩。
-        ServerCompat.openFoliaContainer(plugin, player, targetLocation,
-            getContainerDisplayName(probe), plainName -> {
+            // 此处绝不能直接引用 FoliaCompat，否则 Spigot 上类加载即崩。
+            ServerCompat.openFoliaContainer(plugin, player, targetLocation, plainName -> {
             });
+            return;
+        }
+
+        Block block;
+        try {
+            block = targetLocation.getBlock();
+        } catch (Exception e) {
+            plugin.getLogger().warning("[LetMeSee] 无法读取 "
+                + targetLocation.getWorld().getName()
+                + " (" + targetLocation.getBlockX() + "," + targetLocation.getBlockY() + ","
+                + targetLocation.getBlockZ() + "): " + e);
+            player.sendMessage("§c无法读取该位置，请稍后重试");
+            return;
+        }
+        openLegacy(player, targetLocation, block);
     }
 
     /** Spigot / CraftBukkit 路径：单线程同步直读直开。 */
     @SuppressWarnings("deprecation") // getCustomName 在 Spigot API 中是唯一命名接口，未过时
     private void openLegacy(Player player, Location targetLocation, Block block) {
+        if (block.getType() == Material.ENDER_CHEST) {
+            player.sendMessage("§c末影箱是玩家私有背包，不支持只读查看");
+            return;
+        }
+
         BlockState state = block.getState();
 
         if (!(state instanceof BlockInventoryHolder holder)) {
@@ -135,7 +134,7 @@ public class LMSCommand implements CommandExecutor {
 
         String customName = state instanceof Nameable nameable ? nameable.getCustomName() : null;
         String containerName = (customName == null || customName.isEmpty())
-            ? getContainerDisplayName(block)
+            ? ContainerNames.displayName(block.getType())
             : customName;
 
         ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(), containerName);
@@ -149,44 +148,5 @@ public class LMSCommand implements CommandExecutor {
         viewInv.setContents(contents);
         player.openInventory(viewInv);
         player.sendMessage("§a已打开 " + containerName + " 的只读视图");
-    }
-
-    private static boolean isEnderChest(Block block) {
-        if (block.getType() == Material.ENDER_CHEST) {
-            return true;
-        }
-        try {
-            return block.getState() instanceof EnderChest;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private String getContainerDisplayName(Block block) {
-        return switch (block.getType()) {
-            case CHEST -> "箱子";
-            case TRAPPED_CHEST -> "陷阱箱";
-            case BARREL -> "木桶";
-            case SHULKER_BOX, WHITE_SHULKER_BOX, ORANGE_SHULKER_BOX,
-                 MAGENTA_SHULKER_BOX, LIGHT_BLUE_SHULKER_BOX,
-                 YELLOW_SHULKER_BOX, LIME_SHULKER_BOX, PINK_SHULKER_BOX,
-                 GRAY_SHULKER_BOX, LIGHT_GRAY_SHULKER_BOX, CYAN_SHULKER_BOX,
-                 PURPLE_SHULKER_BOX, BLUE_SHULKER_BOX, BROWN_SHULKER_BOX,
-                 GREEN_SHULKER_BOX, RED_SHULKER_BOX, BLACK_SHULKER_BOX ->
-                "潜影盒";
-            case FURNACE -> "熔炉";
-            case BLAST_FURNACE -> "高炉";
-            case SMOKER -> "烟熏炉";
-            case HOPPER -> "漏斗";
-            case DROPPER -> "投掷器";
-            case DISPENSER -> "发射器";
-            case BREWING_STAND -> "酿造台";
-            case CRAFTER -> "合成器";
-            case CHISELED_BOOKSHELF -> "雕纹书架";
-            case LECTERN -> "讲台";
-            case JUKEBOX -> "唱片机";
-            case DECORATED_POT -> "饰纹陶罐";
-            default -> block.getType().name();
-        };
     }
 }
