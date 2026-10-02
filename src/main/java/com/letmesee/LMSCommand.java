@@ -16,9 +16,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.plugin.java.JavaPlugin;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 public class LMSCommand implements CommandExecutor {
 
@@ -33,12 +30,12 @@ public class LMSCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(Component.text("只有玩家可以使用此命令", NamedTextColor.RED));
+            sender.sendMessage("§c只有玩家可以使用此命令");
             return true;
         }
 
         if (!player.hasPermission("letmesee.use")) {
-            player.sendMessage(Component.text("你没有权限使用此命令", NamedTextColor.RED));
+            player.sendMessage("§c你没有权限使用此命令");
             return true;
         }
 
@@ -47,12 +44,11 @@ public class LMSCommand implements CommandExecutor {
             try {
                 targetBlock = player.getTargetBlockExact(MAX_TARGET_DISTANCE);
             } catch (IllegalStateException e) {
-                player.sendMessage(Component.text("目标不在当前区域，请改用 /lms <世界> <X> <Y> <Z>", NamedTextColor.RED));
+                player.sendMessage("§c目标不在当前区域，请改用 /lms <世界> <X> <Y> <Z>");
                 return true;
             }
             if (targetBlock == null) {
-                player.sendMessage(Component.text(
-                    "请将准星对准一个容器（最大距离 " + MAX_TARGET_DISTANCE + " 格）", NamedTextColor.RED));
+                player.sendMessage("§c请将准星对准一个容器（最大距离 " + MAX_TARGET_DISTANCE + " 格）");
                 return true;
             }
 
@@ -61,14 +57,13 @@ public class LMSCommand implements CommandExecutor {
         }
 
         if (args.length < 4) {
-            player.sendMessage(Component.text("用法: /lms <世界> <X> <Y> <Z>", NamedTextColor.RED));
+            player.sendMessage("§c用法: /lms <世界> <X> <Y> <Z>");
             return true;
         }
 
         World world = Bukkit.getWorld(args[0]);
         if (world == null) {
-            player.sendMessage(Component.text("未找到世界: ", NamedTextColor.RED)
-                .append(Component.text(args[0], NamedTextColor.YELLOW)));
+            player.sendMessage("§c未找到世界: " + args[0]);
             return true;
         }
 
@@ -78,17 +73,12 @@ public class LMSCommand implements CommandExecutor {
             y = Integer.parseInt(args[2]);
             z = Integer.parseInt(args[3]);
         } catch (NumberFormatException e) {
-            player.sendMessage(Component.text("坐标必须为整数", NamedTextColor.RED));
-            return true;
-        }
-
-        if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
-            player.sendMessage(Component.text("坐标超出世界高度范围", NamedTextColor.RED));
+            player.sendMessage("§c坐标必须为整数");
             return true;
         }
 
         if (!world.isChunkLoaded(x >> 4, z >> 4)) {
-            player.sendMessage(Component.text("该区块尚未加载，请先靠近目标位置再试", NamedTextColor.YELLOW));
+            player.sendMessage("§e该区块尚未加载，请先靠近目标位置再试");
             return true;
         }
 
@@ -97,71 +87,81 @@ public class LMSCommand implements CommandExecutor {
     }
 
     private void openContainer(Player player, Location targetLocation) {
-        Bukkit.getRegionScheduler().run(plugin, targetLocation, task -> {
-            Block block = targetLocation.getBlock();
-            BlockState state = block.getState();
+        Block probe;
+        try {
+            probe = targetLocation.getBlock();
+        } catch (Exception e) {
+            player.sendMessage("§c无法读取该位置: " + e.getClass().getSimpleName());
+            return;
+        }
 
-            if (state instanceof EnderChest || block.getType() == Material.ENDER_CHEST) {
-                runOnPlayer(player, () -> player.sendMessage(
-                    Component.text("末影箱是玩家私有背包，不支持只读查看", NamedTextColor.RED)));
-                return;
-            }
+        if (isEnderChest(probe)) {
+            player.sendMessage("§c末影箱是玩家私有背包，不支持只读查看");
+            return;
+        }
 
-            if (!(state instanceof Container container)) {
-                runOnPlayer(player, () -> player.sendMessage(
-                    Component.text("该位置没有容器", NamedTextColor.RED)));
-                return;
-            }
+        if (FoliaCompat.isSupported()) {
+            openFolia(player, targetLocation, probe);
+        } else {
+            openLegacy(player, targetLocation, probe);
+        }
+    }
 
-            Inventory targetInv = container.getInventory();
-            ItemStack[] contents = cloneContents(targetInv.getContents());
-            InventoryType type = targetInv.getType();
-            int size = targetInv.getSize();
-
-            Component customName = container.customName();
-            Component body = customName == null || Component.empty().equals(customName)
-                ? Component.text(getContainerDisplayName(block))
-                : customName;
-            Component title = Component.text("[只读] ", NamedTextColor.GRAY).append(body);
-            String containerName = PlainTextComponentSerializer.plainText().serialize(body);
-
-            plugin.getLogger().info("[审计] " + player.getName() + "(" + player.getUniqueId() + ") 查看了 "
-                + targetLocation.getWorld().getName()
-                + " (" + targetLocation.getBlockX() + "," + targetLocation.getBlockY() + ","
-                + targetLocation.getBlockZ() + ") "
-                + block.getType().name() + "[" + containerName + "]");
-
-            runOnPlayer(player, () -> {
-                Inventory viewInv;
-                if (type == InventoryType.CHEST) {
-                    viewInv = Bukkit.createInventory(new ReadOnlyHolder(), size, title);
-                } else {
-                    viewInv = Bukkit.createInventory(new ReadOnlyHolder(), type, title);
-                }
+    /** Folia / Paper 路径：区域线程读取，回到玩家线程打开。 */
+    private void openFolia(Player player, Location targetLocation, Block probe) {
+        FoliaCompat.ContainerSnapshot snapshot =
+            new FoliaCompat.ContainerSnapshot(getContainerDisplayName(probe));
+        FoliaCompat.openContainer(plugin, player, targetLocation, snapshot,
+            (contents, type, size, title, plainName) -> {
+                Inventory viewInv = type == InventoryType.CHEST
+                    ? Bukkit.createInventory(new ReadOnlyHolder(), size, title)
+                    : Bukkit.createInventory(new ReadOnlyHolder(), type, title);
                 viewInv.setContents(contents);
                 player.openInventory(viewInv);
-                player.sendMessage(Component.text("已打开 ", NamedTextColor.GREEN)
-                    .append(body)
-                    .append(Component.text(" 的只读视图", NamedTextColor.GREEN)));
+                player.sendMessage("§a已打开 " + plainName + " 的只读视图");
             });
-        });
     }
 
-    private void runOnPlayer(Player player, Runnable action) {
-        player.getScheduler().run(plugin, task -> {
-            if (player.isOnline()) {
-                action.run();
-            }
-        }, null);
-    }
+    /** Spigot / CraftBukkit 路径：单线程同步直读直开。 */
+    @SuppressWarnings("deprecation") // getCustomName 在 Spigot API 中是唯一命名接口，未过时
+    private void openLegacy(Player player, Location targetLocation, Block block) {
+        BlockState state = block.getState();
 
-    private static ItemStack[] cloneContents(ItemStack[] contents) {
-        ItemStack[] copy = new ItemStack[contents.length];
-        for (int i = 0; i < contents.length; i++) {
-            ItemStack item = contents[i];
-            copy[i] = item == null ? null : item.clone();
+        if (!(state instanceof Container container)) {
+            player.sendMessage("§c该位置没有容器");
+            return;
         }
-        return copy;
+
+        Inventory targetInv = container.getInventory();
+        ItemStack[] contents = ContainerSnapshots.cloneContents(targetInv.getContents());
+
+        String customName = container.getCustomName();
+        String containerName = (customName == null || customName.isEmpty())
+            ? getContainerDisplayName(block)
+            : customName;
+
+        ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(), containerName);
+
+        InventoryType type = targetInv.getType();
+        Inventory viewInv = type == InventoryType.CHEST
+            ? Bukkit.createInventory(new ReadOnlyHolder(), targetInv.getSize(),
+                "§7[只读] " + containerName)
+            : Bukkit.createInventory(new ReadOnlyHolder(), type,
+                "§7[只读] " + containerName);
+        viewInv.setContents(contents);
+        player.openInventory(viewInv);
+        player.sendMessage("§a已打开 " + containerName + " 的只读视图");
+    }
+
+    private static boolean isEnderChest(Block block) {
+        if (block.getType() == Material.ENDER_CHEST) {
+            return true;
+        }
+        try {
+            return block.getState() instanceof EnderChest;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private String getContainerDisplayName(Block block) {

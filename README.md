@@ -68,18 +68,29 @@
 .\build.ps1
 ```
 
+## 兼容性
+
+| 服务端 | 模式 |
+|--------|------|
+| Folia / Paper / Leaf 等 | 区域调度模式：在目标区域线程读取，回到玩家线程打开 |
+| Spigot / CraftBukkit | 同步模式：单线程直读直开（无跨线程操作） |
+
+启动时插件会自动检测并记录当前模式。`plugin.yml` 保留 `folia-supported: true`，
+Spigot 会忽略该字段正常加载。
+
 ## 安装
 
 1. 将 `letmesee-1.0.1.jar` 放入服务器的 `plugins/` 目录
 2. 重启服务器或使用 `/reload confirm`
-3. 确保有 `folia-supported: true` 的服务器（Folia / Leaf / 等分叉核心）
 
 ## 工作原理
 
 1. 玩家输入 `/lms` 时，插件读取玩家准星正对的方块；也可以继续输入 `/lms world x y z`
-2. 使用 `Bukkit.getRegionScheduler().run()` 在目标坐标区域线程读取方块状态，并克隆物品
-3. 再切回玩家自己的调度器，把克隆结果放进由 `ReadOnlyHolder` 标记的虚拟库存
-4. 打开只读视图。查看期间 `InventoryListener` 会取消全部点击和拖拽，避免拿走、放入或复制物品
+2. Folia/Paper 上使用 `Bukkit.getRegionScheduler().run()` 在目标坐标区域线程读取并克隆物品，
+   再切回玩家自己的调度器；Spigot 上单线程同步直读（逻辑隔离在 `FoliaCompat` 中）
+3. 把克隆结果放进由 `ReadOnlyHolder` 标记的虚拟库存并打开只读视图；
+   每次查看都会在控制台记一条审计日志
+4. 查看期间 `InventoryListener` 会取消全部点击和拖拽，避免拿走、放入或复制物品
 
 ## 开发
 
