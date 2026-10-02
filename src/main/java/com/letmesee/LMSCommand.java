@@ -2,10 +2,12 @@ package com.letmesee;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
+import org.bukkit.block.EnderChest;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -31,12 +33,12 @@ public class LMSCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("§c只有玩家可以使用此命令");
+            sender.sendMessage(Component.text("只有玩家可以使用此命令", NamedTextColor.RED));
             return true;
         }
 
         if (!player.hasPermission("letmesee.use")) {
-            player.sendMessage("§c你没有权限使用此命令");
+            player.sendMessage(Component.text("你没有权限使用此命令", NamedTextColor.RED));
             return true;
         }
 
@@ -45,11 +47,12 @@ public class LMSCommand implements CommandExecutor {
             try {
                 targetBlock = player.getTargetBlockExact(MAX_TARGET_DISTANCE);
             } catch (IllegalStateException e) {
-                player.sendMessage("§c目标不在当前区域，请改用 /lms <世界> <X> <Y> <Z>");
+                player.sendMessage(Component.text("目标不在当前区域，请改用 /lms <世界> <X> <Y> <Z>", NamedTextColor.RED));
                 return true;
             }
             if (targetBlock == null) {
-                player.sendMessage("§c请将准星对准一个容器（最大距离 " + MAX_TARGET_DISTANCE + " 格）");
+                player.sendMessage(Component.text(
+                    "请将准星对准一个容器（最大距离 " + MAX_TARGET_DISTANCE + " 格）", NamedTextColor.RED));
                 return true;
             }
 
@@ -58,13 +61,14 @@ public class LMSCommand implements CommandExecutor {
         }
 
         if (args.length < 4) {
-            player.sendMessage("§c用法: /lms <世界> <X> <Y> <Z>");
+            player.sendMessage(Component.text("用法: /lms <世界> <X> <Y> <Z>", NamedTextColor.RED));
             return true;
         }
 
         World world = Bukkit.getWorld(args[0]);
         if (world == null) {
-            player.sendMessage("§c未找到世界: " + args[0]);
+            player.sendMessage(Component.text("未找到世界: ", NamedTextColor.RED)
+                .append(Component.text(args[0], NamedTextColor.YELLOW)));
             return true;
         }
 
@@ -74,12 +78,17 @@ public class LMSCommand implements CommandExecutor {
             y = Integer.parseInt(args[2]);
             z = Integer.parseInt(args[3]);
         } catch (NumberFormatException e) {
-            player.sendMessage("§c坐标必须为整数");
+            player.sendMessage(Component.text("坐标必须为整数", NamedTextColor.RED));
             return true;
         }
 
         if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
-            player.sendMessage("§c坐标超出世界高度范围");
+            player.sendMessage(Component.text("坐标超出世界高度范围", NamedTextColor.RED));
+            return true;
+        }
+
+        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+            player.sendMessage(Component.text("该区块尚未加载，请先靠近目标位置再试", NamedTextColor.YELLOW));
             return true;
         }
 
@@ -92,8 +101,15 @@ public class LMSCommand implements CommandExecutor {
             Block block = targetLocation.getBlock();
             BlockState state = block.getState();
 
+            if (state instanceof EnderChest || block.getType() == Material.ENDER_CHEST) {
+                runOnPlayer(player, () -> player.sendMessage(
+                    Component.text("末影箱是玩家私有背包，不支持只读查看", NamedTextColor.RED)));
+                return;
+            }
+
             if (!(state instanceof Container container)) {
-                runOnPlayer(player, () -> player.sendMessage("§c该位置没有容器"));
+                runOnPlayer(player, () -> player.sendMessage(
+                    Component.text("该位置没有容器", NamedTextColor.RED)));
                 return;
             }
 
@@ -109,6 +125,12 @@ public class LMSCommand implements CommandExecutor {
             Component title = Component.text("[只读] ", NamedTextColor.GRAY).append(body);
             String containerName = PlainTextComponentSerializer.plainText().serialize(body);
 
+            plugin.getLogger().info("[审计] " + player.getName() + "(" + player.getUniqueId() + ") 查看了 "
+                + targetLocation.getWorld().getName()
+                + " (" + targetLocation.getBlockX() + "," + targetLocation.getBlockY() + ","
+                + targetLocation.getBlockZ() + ") "
+                + block.getType().name() + "[" + containerName + "]");
+
             runOnPlayer(player, () -> {
                 Inventory viewInv;
                 if (type == InventoryType.CHEST) {
@@ -118,7 +140,9 @@ public class LMSCommand implements CommandExecutor {
                 }
                 viewInv.setContents(contents);
                 player.openInventory(viewInv);
-                player.sendMessage("§a已打开 " + containerName + " 的只读视图");
+                player.sendMessage(Component.text("已打开 ", NamedTextColor.GREEN)
+                    .append(body)
+                    .append(Component.text(" 的只读视图", NamedTextColor.GREEN)));
             });
         });
     }
