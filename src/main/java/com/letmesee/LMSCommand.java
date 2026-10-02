@@ -66,13 +66,14 @@ public class LMSCommand implements CommandExecutor {
             return true;
         }
 
+        Location origin = player.getLocation();
         int x, y, z;
         try {
-            x = parseCoordinate(args[1]);
-            y = parseCoordinate(args[2]);
-            z = parseCoordinate(args[3]);
+            x = parseCoordinate(args[1], origin.getBlockX());
+            y = parseCoordinate(args[2], origin.getBlockY());
+            z = parseCoordinate(args[3], origin.getBlockZ());
         } catch (NumberFormatException e) {
-            player.sendMessage("§c坐标必须为 -30000000 到 30000000 之间的整数");
+            player.sendMessage("§c坐标必须为 -30000000 到 30000000 之间的整数，相对坐标可用 ~（如 ~ ~1 ~-2）");
             return true;
         }
 
@@ -86,15 +87,33 @@ public class LMSCommand implements CommandExecutor {
     }
 
     /**
-     * 解析坐标分量。拒绝非数字、越界整数与超出世界边境范围的值，
+     * 解析坐标分量，支持绝对坐标与相对坐标（{@code ~}、{@code ~1}、{@code ~-2}）。
+     * 拒绝非数字、越界整数与超出世界边境范围的值，
      * 调用方统一按 NumberFormatException 处理。
+     *
+     * @param arg 坐标参数
+     * @param base 相对坐标的基准（玩家当前位置对应分量）
      */
-    private static int parseCoordinate(String arg) throws NumberFormatException {
+    static int parseCoordinate(String arg, int base) throws NumberFormatException {
+        String text = arg.trim();
         long value;
-        try {
-            value = Long.parseLong(arg.trim());
-        } catch (NumberFormatException e) {
-            throw new NumberFormatException("not a number: " + arg);
+        if (text.startsWith("~")) {
+            String offset = text.substring(1).trim();
+            long delta = 0;
+            if (!offset.isEmpty()) {
+                try {
+                    delta = Long.parseLong(offset);
+                } catch (NumberFormatException e) {
+                    throw new NumberFormatException("bad relative coordinate: " + arg);
+                }
+            }
+            value = (long) base + delta;
+        } else {
+            try {
+                value = Long.parseLong(text);
+            } catch (NumberFormatException e) {
+                throw new NumberFormatException("not a number: " + arg);
+            }
         }
         if (value < -30_000_000L || value > 30_000_000L) {
             throw new NumberFormatException("out of range: " + arg);
