@@ -1,7 +1,7 @@
 name: "letmesee"
 version: "${version}"
 main: "com.letmesee.LetMeSee"
-api-version: "1.20"
+api-version: "1.21"
 folia-supported: true
 
 commands:

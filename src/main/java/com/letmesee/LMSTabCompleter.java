@@ -16,6 +16,15 @@ public class LMSTabCompleter implements TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        try {
+            return complete(sender, args);
+        } catch (Exception e) {
+            // 补全在聊天线程执行，任何异常都不应刷屏：静默降级为空建议
+            return List.of();
+        }
+    }
+
+    private List<String> complete(CommandSender sender, String[] args) {
         if (!sender.hasPermission("letmesee.use")) {
             return List.of();
         }
