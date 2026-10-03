@@ -3,8 +3,11 @@ param([switch]$Clean)
 $ErrorActionPreference = "Stop"
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 
-$Version = "1.0.7"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+# 版本号唯一来源：build.gradle.kts，避免两处手动同步遗漏
+$VersionLine = Select-String -Path (Join-Path $ProjectRoot "build.gradle.kts") -Pattern '^version = "([^"]+)"' | Select-Object -First 1
+if (-not $VersionLine) { throw "Cannot find version in build.gradle.kts" }
+$Version = $VersionLine.Matches[0].Groups[1].Value
 $BuildDir = Join-Path $ProjectRoot "build"
 $ClassesDir = Join-Path $BuildDir "classes"
 $LibsDir = Join-Path $BuildDir "libs"
