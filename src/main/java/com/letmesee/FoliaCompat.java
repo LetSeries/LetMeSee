@@ -79,11 +79,14 @@ public final class FoliaCompat {
         ItemStack[] contents = ContainerSnapshots.cloneContents(targetInv.getContents());
 
         Component customName = state instanceof Nameable nameable ? nameable.customName() : null;
-        Component body = customName == null || Component.empty().equals(customName)
+        Component rawBody = customName == null || Component.empty().equals(customName)
             ? Component.text(ContainerNames.displayName(block.getType()))
             : customName;
+        String fullName = PlainTextComponentSerializer.plainText().serialize(rawBody);
+        // 标题过长会在客户端显示异常：展示用截断版，审计仍用完整名
+        String plainName = fullName.length() > 32 ? fullName.substring(0, 31) + "…" : fullName;
+        Component body = plainName.equals(fullName) ? rawBody : Component.text(plainName);
         Component title = Component.text("[只读] ", NamedTextColor.GRAY).append(body);
-        String plainName = PlainTextComponentSerializer.plainText().serialize(body);
 
         InventoryType type = targetInv.getType();
         Inventory viewInv = type == InventoryType.CHEST
@@ -92,7 +95,7 @@ public final class FoliaCompat {
         viewInv.setContents(contents);
 
             ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(),
-                plainName, auditEnabled);
+                fullName, auditEnabled);
 
             String where = ContainerSnapshots.describe(targetLocation);
             runOnPlayer(plugin, player, () -> opener.open(viewInv, plainName, where));

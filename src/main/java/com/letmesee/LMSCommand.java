@@ -151,6 +151,17 @@ public class LMSCommand implements CommandExecutor {
         return (int) value;
     }
 
+    /**
+     * 截断过长的自定义名，避免只读视图标题在客户端显示异常。
+     * 审计日志记录的是完整名称，不受影响。
+     */
+    private static String truncate(String text, int maxLength) {
+        if (text.length() <= maxLength) {
+            return text;
+        }
+        return text.substring(0, maxLength - 1) + "…";
+    }
+
     private void openContainer(Player player, Location targetLocation) {
         // 注意：调用线程（玩家线程）不触碰目标方块。Folia 下目标可能位于其他区域，
         // 一切读取都在区域线程（FoliaCompat）或同线程（Spigot legacy）内完成。
@@ -197,12 +208,13 @@ public class LMSCommand implements CommandExecutor {
         ItemStack[] contents = ContainerSnapshots.cloneContents(targetInv.getContents());
 
         String customName = state instanceof Nameable nameable ? nameable.getCustomName() : null;
-        String containerName = (customName == null || customName.isEmpty())
+        String fullName = (customName == null || customName.isEmpty())
             ? ContainerNames.displayName(block.getType())
             : customName;
+        String containerName = truncate(fullName, 32);
 
         ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(),
-            containerName, LMSConfig.auditEnabled(plugin.getConfig()));
+            fullName, LMSConfig.auditEnabled(plugin.getConfig()));
 
         InventoryType type = targetInv.getType();
         Inventory viewInv = type == InventoryType.CHEST
