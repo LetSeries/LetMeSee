@@ -80,12 +80,28 @@ public class LMSCommand implements CommandExecutor {
             return true;
         }
 
-        Location origin = player.getLocation();
+        Location origin;
+        try {
+            origin = player.getLocation();
+        } catch (IllegalStateException e) {
+            // Folia 下命令执行线程与玩家不在同一区域：相对坐标无基准可用
+            origin = null;
+        }
+        if (origin == null
+            && (args[1].trim().startsWith("~")
+                || args[2].trim().startsWith("~")
+                || args[3].trim().startsWith("~"))) {
+            player.sendMessage("§c当前无法读取你的位置，相对坐标（~）不可用，请使用绝对坐标");
+            return true;
+        }
         int x, y, z;
         try {
-            x = parseCoordinate(args[1], origin.getBlockX());
-            y = parseCoordinate(args[2], origin.getBlockY());
-            z = parseCoordinate(args[3], origin.getBlockZ());
+            int baseX = origin == null ? 0 : origin.getBlockX();
+            int baseY = origin == null ? 0 : origin.getBlockY();
+            int baseZ = origin == null ? 0 : origin.getBlockZ();
+            x = parseCoordinate(args[1], baseX);
+            y = parseCoordinate(args[2], baseY);
+            z = parseCoordinate(args[3], baseZ);
         } catch (NumberFormatException e) {
             player.sendMessage("§c坐标必须为 -30000000 到 30000000 之间的整数，相对坐标可用 ~（如 ~ ~1 ~-2）");
             return true;
