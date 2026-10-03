@@ -33,7 +33,11 @@ public final class ServerCompat {
             // 确认隔离层本身可加载（方法签名污染会在此处暴露）
             Class.forName("com.letmesee.FoliaCompat");
             return true;
-        } catch (NoSuchMethodException | ClassNotFoundException | NoClassDefFoundError e) {
+        } catch (NoSuchMethodException | ClassNotFoundException e) {
+            return false;
+        } catch (LinkageError e) {
+            // NoClassDefFoundError / ExceptionInInitializerError 等：
+            // 隔离层不可用，降级为同步模式
             return false;
         }
     }
