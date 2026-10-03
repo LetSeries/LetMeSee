@@ -31,13 +31,16 @@ public class LMSTabCompleter implements TabCompleter {
 
         if (args.length == 1) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
-            List<String> worlds = new ArrayList<>();
+            List<String> result = new ArrayList<>();
+            if ("reload".startsWith(prefix)) {
+                result.add("reload");
+            }
             for (World world : Bukkit.getWorlds()) {
                 if (world.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                    worlds.add(world.getName());
+                    result.add(world.getName());
                 }
             }
-            return worlds;
+            return result;
         }
 
         if (!(sender instanceof Player player) || args.length > 4) {

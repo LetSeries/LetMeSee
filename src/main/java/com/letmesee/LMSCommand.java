@@ -55,6 +55,15 @@ public class LMSCommand implements CommandExecutor {
             return true;
         }
 
+        if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
+            plugin.reloadConfig();
+            int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
+            boolean audit = LMSConfig.auditEnabled(plugin.getConfig());
+            player.sendMessage("§a配置已重载：最大距离 " + maxDistance + " 格，审计日志 "
+                + (audit ? "开启" : "关闭"));
+            return true;
+        }
+
         if (args.length < 4) {
             player.sendMessage("§c用法: /lms <世界> <X> <Y> <Z>");
             return true;
