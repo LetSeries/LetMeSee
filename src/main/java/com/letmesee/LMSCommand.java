@@ -2,19 +2,12 @@ package com.letmesee;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Nameable;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.BlockInventoryHolder;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class LMSCommand implements CommandExecutor {
@@ -151,80 +144,18 @@ public class LMSCommand implements CommandExecutor {
         return (int) value;
     }
 
-    /**
-     * 截断过长的自定义名，避免只读视图标题在客户端显示异常。
-     * 审计日志记录的是完整名称，不受影响。
-     */
-    private static String truncate(String text, int maxLength) {
-        if (text.length() <= maxLength) {
-            return text;
-        }
-        return text.substring(0, maxLength - 1) + "…";
-    }
-
     private void openContainer(Player player, Location targetLocation) {
         // 注意：调用线程（玩家线程）不触碰目标方块。Folia 下目标可能位于其他区域，
         // 一切读取都在区域线程（FoliaCompat）或同线程（Spigot legacy）内完成。
+        // 配置在调用线程预读，区域线程/定时任务不再触碰 config。
+        boolean auditEnabled = LMSConfig.auditEnabled(plugin.getConfig());
+        int refreshTicks = LMSConfig.refreshIntervalTicks(plugin.getConfig());
         if (ServerCompat.isFolia()) {
             // 此处绝不能直接引用 FoliaCompat，否则 Spigot 上类加载即崩。
-            // 配置在调用线程预读，区域线程内不再触碰 config。
             ServerCompat.openFoliaContainer(plugin, player, targetLocation,
-                LMSConfig.auditEnabled(plugin.getConfig()));
+                auditEnabled, refreshTicks);
             return;
         }
-
-        Block block;
-        try {
-            block = targetLocation.getBlock();
-        } catch (Exception e) {
-            plugin.getLogger().warning("[LetMeSee] 无法读取 "
-                + ContainerSnapshots.describe(targetLocation) + ": " + e);
-            player.sendMessage("§c无法读取该位置，请稍后重试");
-            return;
-        }
-        openLegacy(player, targetLocation, block);
-    }
-
-    /** Spigot / CraftBukkit 路径：单线程同步直读直开。 */
-    @SuppressWarnings("deprecation") // getCustomName 在 Spigot API 中是唯一命名接口，未过时
-    private void openLegacy(Player player, Location targetLocation, Block block) {
-        if (block.getType() == Material.ENDER_CHEST) {
-            player.sendMessage("§c末影箱是玩家私有背包，不支持只读查看");
-            return;
-        }
-
-        BlockState state = block.getState();
-
-        if (!(state instanceof BlockInventoryHolder holder)) {
-            player.sendMessage("§c该位置没有容器");
-            return;
-        }
-
-        Inventory targetInv = holder.getInventory();
-        if (targetInv == null) {
-            player.sendMessage("§c无法读取该容器的物品");
-            return;
-        }
-        ItemStack[] contents = ContainerSnapshots.cloneContents(targetInv.getContents());
-
-        String customName = state instanceof Nameable nameable ? nameable.getCustomName() : null;
-        String fullName = (customName == null || customName.isEmpty())
-            ? ContainerNames.displayName(block.getType())
-            : customName;
-        String containerName = truncate(fullName, 32);
-
-        ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(),
-            fullName, LMSConfig.auditEnabled(plugin.getConfig()));
-
-        InventoryType type = targetInv.getType();
-        Inventory viewInv = type == InventoryType.CHEST
-            ? Bukkit.createInventory(new ReadOnlyHolder(), targetInv.getSize(),
-                "§7[只读] " + containerName)
-            : Bukkit.createInventory(new ReadOnlyHolder(), type,
-                "§7[只读] " + containerName);
-        viewInv.setContents(contents);
-        player.openInventory(viewInv);
-        player.sendMessage("§a已打开 " + containerName + " 的只读视图 §7"
-            + ContainerSnapshots.describe(targetLocation));
+        LegacyRefresher.open(plugin, player, targetLocation, auditEnabled, refreshTicks);
     }
 }

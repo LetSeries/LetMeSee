@@ -21,6 +21,7 @@ public class LetMeSee extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        ViewSession.closeAll();
         getLogger().info("LetMeSee 已禁用");
     }
 }

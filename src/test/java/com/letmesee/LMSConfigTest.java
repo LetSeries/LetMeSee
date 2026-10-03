@@ -43,4 +43,30 @@ class LMSConfigTest {
 
         assertFalse(LMSConfig.auditEnabled(config));
     }
+
+    @Test
+    void refreshIntervalDefaultsToFiveSeconds() {
+        assertEquals(5 * 20, LMSConfig.refreshIntervalTicks(new MemoryConfiguration()));
+    }
+
+    @Test
+    void refreshIntervalZeroDisables() {
+        for (int off : new int[]{0, -1, -60}) {
+            MemoryConfiguration config = new MemoryConfiguration();
+            config.set("refresh-interval-seconds", off);
+
+            assertEquals(0, LMSConfig.refreshIntervalTicks(config), "seconds=" + off);
+        }
+    }
+
+    @Test
+    void refreshIntervalConvertsAndCaps() {
+        MemoryConfiguration config = new MemoryConfiguration();
+        config.set("refresh-interval-seconds", 10);
+        assertEquals(10 * 20, LMSConfig.refreshIntervalTicks(config));
+
+        MemoryConfiguration capped = new MemoryConfiguration();
+        capped.set("refresh-interval-seconds", 3600);
+        assertEquals(60 * 20, LMSConfig.refreshIntervalTicks(capped));
+    }
 }

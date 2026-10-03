@@ -27,4 +27,19 @@ public final class LMSConfig {
     public static boolean auditEnabled(Configuration config) {
         return config.getBoolean("audit-log", true);
     }
+
+    /**
+     * 只读视图刷新间隔（秒）。0 或负数表示关闭自动刷新。
+     * 范围限制 1~60，非法值回退默认 5 秒。
+     */
+    public static int refreshIntervalTicks(Configuration config) {
+        int seconds = config.getInt("refresh-interval-seconds", 5);
+        if (seconds <= 0) {
+            return 0;
+        }
+        if (seconds > 60) {
+            return 60 * 20;
+        }
+        return seconds * 20;
+    }
 }

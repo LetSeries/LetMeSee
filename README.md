@@ -10,6 +10,7 @@
 - **中文界面** — 容器名称自动本地化（箱子、熔炉、漏斗等）
 - **审计日志** — 每次查看都会在控制台记录玩家、坐标和容器类型
 - **只读保护** — 查看期间拦截全部点击和拖拽，物品拿不走、放不进、复制不了
+- **自动刷新** — 视图按配置间隔自动同步容器变化；容器消失或变尺寸时自动关闭
 
 ## 指令
 
@@ -27,6 +28,7 @@
 |----|------|------|
 | `max-target-distance` | 10 | `/lms` 准星模式最大距离，范围 1~64，非法值自动回退 |
 | `audit-log` | true | 是否在控制台记录审计日志 |
+| `refresh-interval-seconds` | 5 | 只读视图自动刷新间隔（秒），0 关闭，范围 1~60 |
 
 修改后下次执行命令即生效，无需重启。
 
@@ -113,11 +115,13 @@ gradle build
 src/main/java/com/letmesee/
 ├── LetMeSee.java          # 插件入口：注册命令、监听器，启动时检测运行模式
 ├── LMSCommand.java        # /lms 命令：参数解析，Folia/Spigot 双路径分流
+├── LegacyRefresher.java   # Spigot 同步路径：打开视图 + 定时刷新
 ├── FoliaCompat.java       # Folia/Paper 隔离层（区域线程读取，玩家线程打开）
 ├── ServerCompat.java      # 零依赖环境检测，经反射进入 FoliaCompat
 ├── ContainerNames.java    # 方块类型到中文名的映射（任意线程可调用）
 ├── LMSConfig.java         # config.yml 视图：查看距离、审计开关
-├── ContainerSnapshots.java# 物品克隆与审计日志（与服务端实现无关）
+├── ContainerSnapshots.java# 容器读取、物品克隆与审计日志（与服务端实现无关）
+├── ViewSession.java       # 只读查看会话：注册、刷新应用、关闭清理
 ├── InventoryListener.java # 取消只读界面的点击/拖拽
 ├── LMSTabCompleter.java   # 世界名与坐标补全
 └── ReadOnlyHolder.java    # 标记虚拟只读库存
