@@ -94,7 +94,8 @@ public final class FoliaCompat {
             ContainerSnapshots.audit(plugin, player, targetLocation, block.getType().name(),
                 plainName, auditEnabled);
 
-        runOnPlayer(plugin, player, () -> opener.open(viewInv, plainName));
+            String where = ContainerSnapshots.describe(targetLocation);
+            runOnPlayer(plugin, player, () -> opener.open(viewInv, plainName, where));
     }
 
     private static void runOnPlayer(JavaPlugin plugin, Player player, Runnable action) {

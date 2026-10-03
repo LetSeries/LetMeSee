@@ -55,9 +55,9 @@ public final class ServerCompat {
             Method method = compat.getMethod("openContainer", JavaPlugin.class, Player.class,
                 Location.class, boolean.class, FoliaOpener.class);
             method.invoke(null, plugin, player, targetLocation, auditEnabled,
-                (FoliaOpener) (viewInv, plainName) -> {
+                (FoliaOpener) (viewInv, plainName, where) -> {
                     player.openInventory(viewInv);
-                    player.sendMessage("§a已打开 " + plainName + " 的只读视图");
+                    player.sendMessage("§a已打开 " + plainName + " 的只读视图 §7" + where);
                 });
         } catch (ReflectiveOperationException e) {
             plugin.getLogger().warning("[LetMeSee] Folia 模式进入失败，已取消本次查看: " + e);
@@ -68,6 +68,6 @@ public final class ServerCompat {
     /** 在玩家线程打开只读视图的回调（签名单含 Bukkit/JDK 类型）。 */
     @FunctionalInterface
     public interface FoliaOpener {
-        void open(org.bukkit.inventory.Inventory viewInv, String plainName);
+        void open(org.bukkit.inventory.Inventory viewInv, String plainName, String where);
     }
 }

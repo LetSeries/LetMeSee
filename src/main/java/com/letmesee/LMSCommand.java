@@ -187,6 +187,7 @@ public class LMSCommand implements CommandExecutor {
                 "§7[只读] " + containerName);
         viewInv.setContents(contents);
         player.openInventory(viewInv);
-        player.sendMessage("§a已打开 " + containerName + " 的只读视图");
+        player.sendMessage("§a已打开 " + containerName + " 的只读视图 §7"
+            + ContainerSnapshots.describe(targetLocation));
     }
 }
