@@ -2,12 +2,14 @@ package com.letmesee;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Nameable;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.plugin.java.JavaPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.concurrent.atomic.AtomicReference;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
@@ -58,9 +60,16 @@ public final class FoliaCompat {
             return;
         }
 
-        String containerName = ContainerSnapshots.truncate(result.fullName(), 32);
-        Component title = Component.text("[只读] ", NamedTextColor.GRAY)
-            .append(Component.text(containerName));
+        // 有 Adventure 自定义名时保留样式（颜色/斜体），超长才回退纯文本截断
+        Component customName = result.state() instanceof Nameable nameable
+            ? nameable.customName() : null;
+        Component rawBody = customName == null || Component.empty().equals(customName)
+            ? Component.text(result.fullName())
+            : customName;
+        String rawPlain = PlainTextComponentSerializer.plainText().serialize(rawBody);
+        String shownName = ContainerSnapshots.truncate(rawPlain, 32);
+        Component body = shownName.equals(rawPlain) ? rawBody : Component.text(shownName);
+        Component title = Component.text("[只读] ", NamedTextColor.GRAY).append(body);
 
         InventoryType type = result.type();
         Inventory viewInv = type == InventoryType.CHEST
@@ -71,7 +80,7 @@ public final class FoliaCompat {
         ContainerSnapshots.audit(plugin, player, targetLocation, result.blockType(),
             result.fullName(), auditEnabled);
 
-        String plainName = containerName;
+        String plainName = shownName;
         String where = ContainerSnapshots.describe(targetLocation);
         runOnPlayer(plugin, player, () -> {
             opener.open(viewInv, plainName, where);

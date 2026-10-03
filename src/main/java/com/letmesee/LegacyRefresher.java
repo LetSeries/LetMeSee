@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -61,11 +60,5 @@ public final class LegacyRefresher {
             }
         }, refreshTicks, refreshTicks);
         ViewSession.register(player, session.withCanceller(() -> holder[0].cancel()));
-    }
-
-    /** 仅会话视图是否为本插件只读视图时才清理（供监听器外的兜底调用）。 */
-    public static boolean isReadOnlyView(Inventory inventory) {
-        InventoryHolder holder = inventory == null ? null : inventory.getHolder();
-        return holder instanceof ReadOnlyHolder;
     }
 }
