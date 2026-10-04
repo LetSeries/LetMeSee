@@ -20,6 +20,19 @@ public class LMSCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
+            if (!sender.hasPermission("letmesee.reload")) {
+                sender.sendMessage("§c你没有权限重载配置");
+                return true;
+            }
+            plugin.reloadConfig();
+            int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
+            boolean audit = LMSConfig.auditEnabled(plugin.getConfig());
+            sender.sendMessage("§a配置已重载：最大距离 " + maxDistance + " 格，审计日志 "
+                + (audit ? "开启" : "关闭"));
+            return true;
+        }
+
         if (!(sender instanceof Player player)) {
             sender.sendMessage("§c只有玩家可以使用此命令");
             return true;
@@ -45,15 +58,6 @@ public class LMSCommand implements CommandExecutor {
             }
 
             openContainer(player, targetBlock.getLocation());
-            return true;
-        }
-
-        if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
-            plugin.reloadConfig();
-            int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
-            boolean audit = LMSConfig.auditEnabled(plugin.getConfig());
-            player.sendMessage("§a配置已重载：最大距离 " + maxDistance + " 格，审计日志 "
-                + (audit ? "开启" : "关闭"));
             return true;
         }
 

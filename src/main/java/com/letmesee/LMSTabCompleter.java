@@ -25,14 +25,20 @@ public class LMSTabCompleter implements TabCompleter {
     }
 
     private List<String> complete(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("letmesee.use")) {
+        boolean canUse = sender.hasPermission("letmesee.use");
+        boolean canReload = sender.hasPermission("letmesee.reload");
+        if (!canUse && !canReload) {
             return List.of();
         }
 
         if (args.length == 1) {
+            if (!canUse) {
+                return canReload && "reload".startsWith(args[0].toLowerCase(Locale.ROOT))
+                    ? List.of("reload") : List.of();
+            }
             String prefix = args[0].toLowerCase(Locale.ROOT);
             List<String> result = new ArrayList<>();
-            if ("reload".startsWith(prefix)) {
+            if (sender.hasPermission("letmesee.reload") && "reload".startsWith(prefix)) {
                 result.add("reload");
             }
             for (World world : Bukkit.getWorlds()) {
@@ -43,7 +49,7 @@ public class LMSTabCompleter implements TabCompleter {
             return result;
         }
 
-        if (!(sender instanceof Player player) || args.length > 4) {
+        if (!canUse || !(sender instanceof Player player) || args.length > 4) {
             return List.of();
         }
 

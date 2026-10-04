@@ -18,7 +18,7 @@
 |------|------|------|
 | `/lms` | `letmesee.use` | 查看准星正对的容器（最多 10 格） |
 | `/lms <世界> <X> <Y> <Z>` | `letmesee.use` | 只读打开指定坐标的容器（支持 `~` 相对坐标） |
-| `/lms reload` | `letmesee.use` | 重载 config.yml |
+| `/lms reload` | `letmesee.reload` | 重载 config.yml |
 
 坐标参数支持 Tab 补全（世界名、当前坐标）。
 
@@ -36,7 +36,8 @@
 
 | 权限节点 | 默认 | 说明 |
 |----------|------|------|
-| `letmesee.use` | op | 允许使用 `/lms` 命令 |
+| `letmesee.use` | op | 允许使用 `/lms` 查看容器 |
+| `letmesee.reload` | op | 允许使用 `/lms reload` 重载配置 |
 
 ## 支持容器类型
 
