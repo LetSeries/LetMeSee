@@ -30,13 +30,6 @@ java {
 }
 
 tasks {
-    // 供 CI 读取项目版本号（release workflow 用）
-    register("printVersion") {
-        doLast {
-            println(project.version)
-        }
-    }
-
     processResources {
         filteringCharset = "UTF-8"
         filesMatching("plugin.yml") {
