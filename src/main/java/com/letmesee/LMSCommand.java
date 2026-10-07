@@ -109,6 +109,14 @@ public class LMSCommand implements CommandExecutor {
             return true;
         }
 
+        // getMinHeight/getMaxHeight 来自 WorldInfo，Paper 与 Spigot 均有
+        int minY = world.getMinHeight();
+        int maxY = world.getMaxHeight();
+        if (y < minY || y >= maxY) {
+            player.sendMessage("§cY 坐标超出该世界高度范围（" + minY + " ~ " + (maxY - 1) + "）");
+            return true;
+        }
+
         openContainer(player, new Location(world, x, y, z));
         return true;
     }
