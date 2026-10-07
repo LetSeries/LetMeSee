@@ -68,4 +68,33 @@ public final class ServerCompat {
     public interface FoliaOpener {
         void open(org.bukkit.inventory.Inventory viewInv, String plainName, String where);
     }
+
+    /**
+     * 反射进入 Folia 模式的玩家库存只读流程（背包 / 末影箱）。
+     * 在目标玩家线程快照，切回查看者线程打开。反射失败时友好提示。
+     */
+    public static void openFoliaPlayerView(JavaPlugin plugin, Player viewer,
+            java.util.UUID targetId, boolean enderChest, boolean auditEnabled,
+            int refreshTicks) {
+        try {
+            Class<?> compat = Class.forName("com.letmesee.FoliaCompat");
+            Method method = compat.getMethod("openPlayerView", JavaPlugin.class,
+                Player.class, java.util.UUID.class, boolean.class, boolean.class,
+                int.class, FoliaPlayerOpener.class);
+            method.invoke(null, plugin, viewer, targetId, enderChest, auditEnabled,
+                refreshTicks, (FoliaPlayerOpener) (viewInv, snapshot) -> {
+                    viewer.openInventory(viewInv);
+                });
+        } catch (ReflectiveOperationException e) {
+            plugin.getLogger().warning("[LetMeSee] Folia 玩家视图进入失败: " + e);
+            viewer.sendMessage("§c打开只读视图失败，请稍后重试");
+        }
+    }
+
+    /** 玩家库存视图打开回调（签名单含 Bukkit/JDK 类型）。 */
+    @FunctionalInterface
+    public interface FoliaPlayerOpener {
+        void open(org.bukkit.inventory.Inventory viewInv,
+            com.letmesee.PlayerViews.Snapshot snapshot);
+    }
 }

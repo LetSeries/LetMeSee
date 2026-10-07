@@ -61,8 +61,19 @@ public class LMSCommand implements CommandExecutor {
             return true;
         }
 
+        if (args.length == 2
+            && (args[0].equalsIgnoreCase("inv") || args[0].equalsIgnoreCase("ec"))) {
+            if (!player.hasPermission("letmesee.player")) {
+                player.sendMessage("§c你没有权限查看玩家库存");
+                return true;
+            }
+            boolean enderChest = args[0].equalsIgnoreCase("ec");
+            openPlayerView(player, args[1], enderChest);
+            return true;
+        }
+
         if (args.length < 4) {
-            player.sendMessage("§c用法: /lms <世界> <X> <Y> <Z>");
+            player.sendMessage("§c用法: /lms <世界> <X> <Y> <Z>，或 /lms <inv|ec> <玩家>");
             return true;
         }
 
@@ -154,6 +165,101 @@ public class LMSCommand implements CommandExecutor {
             throw new NumberFormatException("out of range: " + arg);
         }
         return (int) value;
+    }
+
+    /**
+     * 只读查看目标玩家的背包或末影箱。目标离线直接提示；
+     * Folia 下在目标玩家线程快照，Spigot 下同步直读。
+     */
+    private void openPlayerView(Player viewer, String targetName, boolean enderChest) {
+        Player target = Bukkit.getPlayerExact(targetName);
+        if (target == null || !target.isOnline()) {
+            viewer.sendMessage("§c目标玩家不在线: " + targetName);
+            return;
+        }
+        boolean auditEnabled = LMSConfig.auditEnabled(plugin.getConfig());
+        int refreshTicks = LMSConfig.refreshIntervalTicks(plugin.getConfig());
+        if (ServerCompat.isFolia()) {
+            // 此处绝不能直接引用 FoliaCompat，否则 Spigot 上类加载即崩。
+            ServerCompat.openFoliaPlayerView(plugin, viewer, target.getUniqueId(),
+                enderChest, auditEnabled, refreshTicks);
+            return;
+        }
+        PlayerViews.Snapshot snapshot = PlayerViews.snapshot(target, enderChest);
+        org.bukkit.inventory.Inventory viewInv =
+            PlayerViews.openSnapshot(plugin, viewer, snapshot, auditEnabled);
+        if (refreshTicks <= 0) {
+            return;
+        }
+        org.bukkit.scheduler.BukkitTask[] holder = new org.bukkit.scheduler.BukkitTask[1];
+        holder[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            ViewSession current = ViewSession.get(viewer.getUniqueId());
+            if (current == null || current.view() != viewInv) {
+                holder[0].cancel();
+                return;
+            }
+            Player online = Bukkit.getPlayer(target.getUniqueId());
+            if (online == null || !online.isOnline()) {
+                viewer.closeInventory();
+                viewer.sendMessage("§e目标玩家已下线，视图已关闭");
+                ViewSession.close(viewer.getUniqueId());
+                holder[0].cancel();
+                return;
+            }
+            PlayerViews.Snapshot fresh;
+            try {
+                fresh = PlayerViews.snapshot(online, enderChest);
+            } catch (Exception e) {
+                viewer.closeInventory();
+                viewer.sendMessage("§e无法读取目标库存，视图已关闭");
+                ViewSession.close(viewer.getUniqueId());
+                holder[0].cancel();
+                return;
+            }
+            if (!applyPlayerRefresh(viewer, current, fresh, viewInv)) {
+                holder[0].cancel();
+            }
+        }, refreshTicks, refreshTicks);
+        ViewSession.register(viewer,
+            ViewSession.create(null, viewInv, target.getUniqueId())
+                .withCanceller(() -> holder[0].cancel()));
+    }
+
+    /**
+     * 把一次玩家库存重快照应用到视图。必须在查看者线程执行。
+     *
+     * @return 会话是否继续存活；false 表示调用方应停止定时任务
+     */
+    private static boolean applyPlayerRefresh(Player viewer, ViewSession session,
+            PlayerViews.Snapshot fresh, org.bukkit.inventory.Inventory viewInv) {
+        if (!viewer.isOnline()) {
+            ViewSession.close(viewer.getUniqueId());
+            return false;
+        }
+        org.bukkit.inventory.Inventory open;
+        try {
+            open = viewer.getOpenInventory().getTopInventory();
+        } catch (Exception e) {
+            ViewSession.close(viewer.getUniqueId());
+            return false;
+        }
+        if (open != viewInv) {
+            ViewSession.close(viewer.getUniqueId());
+            return false;
+        }
+        if (fresh.type() != viewInv.getType() || fresh.size() != viewInv.getSize()) {
+            viewer.closeInventory();
+            viewer.sendMessage("§e目标库存已变化，请重新打开");
+            ViewSession.close(viewer.getUniqueId());
+            return false;
+        }
+        viewInv.setContents(fresh.contents());
+        try {
+            viewer.updateInventory();
+        } catch (Exception ignored) {
+            // 客户端同步失败不影响服务端数据
+        }
+        return true;
     }
 
     private void openContainer(Player player, Location targetLocation) {

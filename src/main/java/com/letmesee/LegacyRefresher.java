@@ -46,7 +46,7 @@ public final class LegacyRefresher {
         if (refreshTicks <= 0) {
             return;
         }
-        ViewSession session = ViewSession.create(targetLocation, viewInv);
+        ViewSession session = ViewSession.create(targetLocation, viewInv, null);
         BukkitTask[] holder = new BukkitTask[1];
         holder[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             ViewSession current = ViewSession.get(player.getUniqueId());

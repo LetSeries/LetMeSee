@@ -32,18 +32,50 @@ public class LMSTabCompleter implements TabCompleter {
         }
 
         if (args.length == 1) {
+            boolean canPlayer =
+                sender.hasPermission("letmesee.player") && sender instanceof Player;
             if (!canUse) {
-                return canReload && "reload".startsWith(args[0].toLowerCase(Locale.ROOT))
-                    ? List.of("reload") : List.of();
+                List<String> only = new ArrayList<>();
+                if (canReload && "reload".startsWith(args[0].toLowerCase(Locale.ROOT))) {
+                    only.add("reload");
+                }
+                if (canPlayer) {
+                    for (String keyword : new String[]{"inv", "ec"}) {
+                        if (keyword.startsWith(args[0].toLowerCase(Locale.ROOT))) {
+                            only.add(keyword);
+                        }
+                    }
+                }
+                return only;
             }
             String prefix = args[0].toLowerCase(Locale.ROOT);
             List<String> result = new ArrayList<>();
             if (sender.hasPermission("letmesee.reload") && "reload".startsWith(prefix)) {
                 result.add("reload");
             }
+            if (canPlayer) {
+                for (String keyword : new String[]{"inv", "ec"}) {
+                    if (keyword.startsWith(prefix)) {
+                        result.add(keyword);
+                    }
+                }
+            }
             for (World world : Bukkit.getWorlds()) {
                 if (world.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
                     result.add(world.getName());
+                }
+            }
+            return result;
+        }
+
+        // /lms inv|ec <玩家>：补在线玩家名
+        if (args.length == 2 && sender.hasPermission("letmesee.player")
+            && (args[0].equalsIgnoreCase("inv") || args[0].equalsIgnoreCase("ec"))) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            List<String> result = new ArrayList<>();
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (online.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                    result.add(online.getName());
                 }
             }
             return result;

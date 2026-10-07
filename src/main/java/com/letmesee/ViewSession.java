@@ -17,18 +17,24 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>会话在以下情况结束：玩家关闭界面、退出游戏、容器消失或变化、
  * 插件卸载。结束时定时任务一并取消，不泄漏。</p>
  */
-public record ViewSession(Location location, Inventory view, Runnable canceller) {
+public record ViewSession(Location location, Inventory view, Runnable canceller,
+        UUID ownerId) {
 
     private static final Map<UUID, ViewSession> SESSIONS = new ConcurrentHashMap<>();
 
-    /** 创建尚未注册的会话（canceller 为空实现，注册时替换）。 */
-    public static ViewSession create(Location location, Inventory view) {
+    /** 创建尚未注册的会话（canceller 为空实现，注册时替换）。ownerId 为被查看目标，可为 null。 */
+    public static ViewSession create(Location location, Inventory view, UUID ownerId) {
         return new ViewSession(location, view, () -> {
-        });
+        }, ownerId);
     }
 
     public ViewSession withCanceller(Runnable canceller) {
-        return new ViewSession(location, view, canceller);
+        return new ViewSession(location, view, canceller, ownerId);
+    }
+
+    /** 被查看目标是否仍在线（容器会话 ownerId 为 null 时视为存活）。 */
+    public static boolean isOwnerOnline(ViewSession session) {
+        return session.ownerId() == null || Bukkit.getPlayer(session.ownerId()) != null;
     }
 
     /** 注册会话，顶掉该玩家旧会话（旧定时任务一并取消）。 */

@@ -115,7 +115,7 @@ public final class FoliaCompat {
             }, refreshTicks, refreshTicks);
         ref.set(scheduled);
         ViewSession.register(player,
-            ViewSession.create(targetLocation, viewInv).withCanceller(() -> {
+            ViewSession.create(targetLocation, viewInv, null).withCanceller(() -> {
                 ScheduledTask current = ref.get();
                 if (current != null) {
                     try {
@@ -133,5 +133,144 @@ public final class FoliaCompat {
                 action.run();
             }
         }, null);
+    }
+
+    /**
+     * 在目标玩家线程快照其背包/末影箱，切回查看者线程打开只读视图，
+     * 并按配置注册自动刷新。
+     *
+     * <p>公开方法签名只含 Bukkit / JDK 类型。被查看目标离线时直接提示查看者。</p>
+     *
+     * @param opener 在查看者线程打开视图的回调，收到已建好的只读视图与快照
+     */
+    public static void openPlayerView(JavaPlugin plugin, Player viewer,
+            java.util.UUID targetId, boolean enderChest, boolean auditEnabled,
+            int refreshTicks, ServerCompat.FoliaPlayerOpener opener) {
+        Player target = Bukkit.getPlayer(targetId);
+        if (target == null || !target.isOnline()) {
+            viewer.sendMessage("§c目标玩家不在线");
+            return;
+        }
+        target.getScheduler().run(plugin, task -> {
+            final PlayerViews.Snapshot snapshot;
+            try {
+                snapshot = PlayerViews.snapshot(target, enderChest);
+            } catch (Exception e) {
+                plugin.getLogger().warning("[LetMeSee] 快照玩家库存失败 "
+                    + targetId + ": " + e);
+                runOnPlayer(plugin, viewer, () ->
+                    viewer.sendMessage("§c读取玩家库存失败，请稍后重试"));
+                return;
+            }
+            runOnPlayer(plugin, viewer, () -> {
+                Inventory viewInv = PlayerViews.openSnapshot(plugin, viewer, snapshot,
+                    auditEnabled);
+                opener.open(viewInv, snapshot);
+                if (refreshTicks > 0) {
+                    schedulePlayerRefresh(plugin, viewer, targetId, enderChest,
+                        refreshTicks, viewInv);
+                }
+            });
+        }, () -> viewer.sendMessage("§c目标玩家不在可访问区域"));
+    }
+
+    /**
+     * 在被查看目标线程定时重快照，查看者线程应用。任务结束条件：
+     * 会话关闭、任一玩家离线/换界面、目标库存类型变化。
+     */
+    private static void schedulePlayerRefresh(JavaPlugin plugin, Player viewer,
+            java.util.UUID targetId, boolean enderChest, int refreshTicks,
+            Inventory viewInv) {
+        AtomicReference<ScheduledTask> ref = new AtomicReference<>();
+        Player target = Bukkit.getPlayer(targetId);
+        if (target == null) {
+            return;
+        }
+        ScheduledTask scheduled = target.getScheduler().runAtFixedRate(plugin,
+            task -> {
+                ref.set(task);
+                ViewSession session = ViewSession.get(viewer.getUniqueId());
+                if (session == null || session.view() != viewInv) {
+                    task.cancel();
+                    return;
+                }
+                if (!ViewSession.isOwnerOnline(session)) {
+                    runOnPlayer(plugin, viewer, () -> {
+                        viewer.closeInventory();
+                        viewer.sendMessage("§e目标玩家已下线，视图已关闭");
+                        ViewSession.close(viewer.getUniqueId());
+                    });
+                    task.cancel();
+                    return;
+                }
+                final PlayerViews.Snapshot fresh;
+                try {
+                    Player online = Bukkit.getPlayer(targetId);
+                    if (online == null) {
+                        throw new IllegalStateException("target offline");
+                    }
+                    fresh = PlayerViews.snapshot(online, enderChest);
+                } catch (Exception e) {
+                    runOnPlayer(plugin, viewer, () -> {
+                        viewer.closeInventory();
+                        viewer.sendMessage("§e无法读取目标库存，视图已关闭");
+                        ViewSession.close(viewer.getUniqueId());
+                    });
+                    task.cancel();
+                    return;
+                }
+                runOnPlayer(plugin, viewer, () -> {
+                    ViewSession current = ViewSession.get(viewer.getUniqueId());
+                    if (current == null || current.view() != viewInv) {
+                        task.cancel();
+                        return;
+                    }
+                    if (fresh.type() != viewInv.getType() || fresh.size() != viewInv.getSize()) {
+                        viewer.closeInventory();
+                        viewer.sendMessage("§e目标库存已变化，请重新打开");
+                        ViewSession.close(viewer.getUniqueId());
+                        task.cancel();
+                        return;
+                    }
+                    Inventory open;
+                    try {
+                        open = viewer.getOpenInventory().getTopInventory();
+                    } catch (Exception e) {
+                        ViewSession.close(viewer.getUniqueId());
+                        task.cancel();
+                        return;
+                    }
+                    if (open != viewInv) {
+                        ViewSession.close(viewer.getUniqueId());
+                        task.cancel();
+                        return;
+                    }
+                    viewInv.setContents(fresh.contents());
+                    try {
+                        viewer.updateInventory();
+                    } catch (Exception ignored) {
+                        // 客户端同步失败不影响服务端数据
+                    }
+                });
+            }, () -> {
+                runOnPlayer(plugin, viewer, () -> {
+                    viewer.closeInventory();
+                    ViewSession.close(viewer.getUniqueId());
+                });
+            }, refreshTicks, refreshTicks);
+        ref.set(scheduled);
+        // 注意：会话注册必须先于 openInventory 触发的 CloseEvent？不，
+        // 注册在这里（仍在查看者线程回调内），顺序与容器路径一致。
+        ViewSession.register(viewer,
+            ViewSession.create(null, viewInv, targetId).withCanceller(() -> {
+                ScheduledTask current = ref.get();
+                if (current != null) {
+                    try {
+                        current.cancel();
+                    } catch (Exception ignored) {
+                        // 卸载期取消失败可忽略
+                    }
+                }
+            }));
     }
 }

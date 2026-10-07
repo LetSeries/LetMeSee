@@ -18,6 +18,8 @@
 |------|------|------|
 | `/lms` | `letmesee.use` | 查看准星正对的容器（最多 10 格） |
 | `/lms <世界> <X> <Y> <Z>` | `letmesee.use` | 只读打开指定坐标的容器（支持 `~` 相对坐标） |
+| `/lms inv <玩家>` | `letmesee.player` | 只读查看在线玩家的背包 |
+| `/lms ec <玩家>` | `letmesee.player` | 只读查看在线玩家的末影箱 |
 | `/lms reload` | `letmesee.reload` | 重载 config.yml |
 
 坐标参数支持 Tab 补全（世界名、当前坐标）。
@@ -37,6 +39,7 @@
 | 权限节点 | 默认 | 说明 |
 |----------|------|------|
 | `letmesee.use` | op | 允许使用 `/lms` 查看容器 |
+| `letmesee.player` | op | 允许使用 `/lms inv\|ec` 查看玩家库存 |
 | `letmesee.reload` | op | 允许使用 `/lms reload` 重载配置 |
 
 ## 支持容器类型
@@ -116,6 +119,7 @@ gradle build
 src/main/java/com/letmesee/
 ├── LetMeSee.java          # 插件入口：注册命令、监听器，启动时检测运行模式
 ├── LMSCommand.java        # /lms 命令：参数解析，Folia/Spigot 双路径分流
+├── PlayerViews.java       # 玩家背包/末影箱快照与只读打开（中立层）
 ├── LegacyRefresher.java   # Spigot 同步路径：打开视图 + 定时刷新
 ├── FoliaCompat.java       # Folia/Paper 隔离层（区域线程读取，玩家线程打开）
 ├── ServerCompat.java      # 零依赖环境检测，经反射进入 FoliaCompat
