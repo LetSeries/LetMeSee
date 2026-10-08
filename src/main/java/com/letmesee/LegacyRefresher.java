@@ -61,4 +61,49 @@ public final class LegacyRefresher {
         }, refreshTicks, refreshTicks);
         ViewSession.register(player, session.withCanceller(() -> holder[0].cancel()));
     }
+
+    /**
+     * 同步快照目标玩家库存并打开只读视图，注册刷新会话。
+     * 目标离线直接提示，不打开界面。
+     */
+    public static void openPlayerView(JavaPlugin plugin, Player viewer, Player target,
+            boolean enderChest, boolean auditEnabled, int refreshTicks) {
+        PlayerViews.Snapshot snapshot = PlayerViews.snapshot(target, enderChest);
+        Inventory viewInv = PlayerViews.openSnapshot(plugin, viewer, snapshot, auditEnabled);
+        if (refreshTicks <= 0) {
+            return;
+        }
+        BukkitTask[] holder = new BukkitTask[1];
+        holder[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            ViewSession current = ViewSession.get(viewer.getUniqueId());
+            if (current == null || current.view() != viewInv) {
+                holder[0].cancel();
+                return;
+            }
+            Player online = Bukkit.getPlayer(target.getUniqueId());
+            if (online == null || !online.isOnline()) {
+                viewer.closeInventory();
+                viewer.sendMessage("§e目标玩家已下线，视图已关闭");
+                ViewSession.close(viewer.getUniqueId());
+                holder[0].cancel();
+                return;
+            }
+            PlayerViews.Snapshot fresh;
+            try {
+                fresh = PlayerViews.snapshot(online, enderChest);
+            } catch (Exception e) {
+                viewer.closeInventory();
+                viewer.sendMessage("§e无法读取目标库存，视图已关闭");
+                ViewSession.close(viewer.getUniqueId());
+                holder[0].cancel();
+                return;
+            }
+            if (!ViewSession.applyPlayerRefresh(viewer, current, fresh)) {
+                holder[0].cancel();
+            }
+        }, refreshTicks, refreshTicks);
+        ViewSession.register(viewer,
+            ViewSession.createForPlayer(viewInv, target.getUniqueId())
+                .withCanceller(() -> holder[0].cancel()));
+    }
 }

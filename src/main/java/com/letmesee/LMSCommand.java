@@ -185,81 +185,8 @@ public class LMSCommand implements CommandExecutor {
                 enderChest, auditEnabled, refreshTicks);
             return;
         }
-        PlayerViews.Snapshot snapshot = PlayerViews.snapshot(target, enderChest);
-        org.bukkit.inventory.Inventory viewInv =
-            PlayerViews.openSnapshot(plugin, viewer, snapshot, auditEnabled);
-        if (refreshTicks <= 0) {
-            return;
-        }
-        org.bukkit.scheduler.BukkitTask[] holder = new org.bukkit.scheduler.BukkitTask[1];
-        holder[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            ViewSession current = ViewSession.get(viewer.getUniqueId());
-            if (current == null || current.view() != viewInv) {
-                holder[0].cancel();
-                return;
-            }
-            Player online = Bukkit.getPlayer(target.getUniqueId());
-            if (online == null || !online.isOnline()) {
-                viewer.closeInventory();
-                viewer.sendMessage("§e目标玩家已下线，视图已关闭");
-                ViewSession.close(viewer.getUniqueId());
-                holder[0].cancel();
-                return;
-            }
-            PlayerViews.Snapshot fresh;
-            try {
-                fresh = PlayerViews.snapshot(online, enderChest);
-            } catch (Exception e) {
-                viewer.closeInventory();
-                viewer.sendMessage("§e无法读取目标库存，视图已关闭");
-                ViewSession.close(viewer.getUniqueId());
-                holder[0].cancel();
-                return;
-            }
-            if (!applyPlayerRefresh(viewer, current, fresh, viewInv)) {
-                holder[0].cancel();
-            }
-        }, refreshTicks, refreshTicks);
-        ViewSession.register(viewer,
-            ViewSession.create(null, viewInv, target.getUniqueId())
-                .withCanceller(() -> holder[0].cancel()));
-    }
-
-    /**
-     * 把一次玩家库存重快照应用到视图。必须在查看者线程执行。
-     *
-     * @return 会话是否继续存活；false 表示调用方应停止定时任务
-     */
-    private static boolean applyPlayerRefresh(Player viewer, ViewSession session,
-            PlayerViews.Snapshot fresh, org.bukkit.inventory.Inventory viewInv) {
-        if (!viewer.isOnline()) {
-            ViewSession.close(viewer.getUniqueId());
-            return false;
-        }
-        org.bukkit.inventory.Inventory open;
-        try {
-            open = viewer.getOpenInventory().getTopInventory();
-        } catch (Exception e) {
-            ViewSession.close(viewer.getUniqueId());
-            return false;
-        }
-        if (open != viewInv) {
-            ViewSession.close(viewer.getUniqueId());
-            return false;
-        }
-        if (fresh.type() != viewInv.getType() || fresh.size() != viewInv.getSize()) {
-            viewer.closeInventory();
-            viewer.sendMessage("§e目标库存已变化，请重新打开");
-            ViewSession.close(viewer.getUniqueId());
-            return false;
-        }
-        viewInv.setContents(fresh.contents());
-        try {
-            viewer.updateInventory();
-        } catch (Exception ignored) {
-            // 客户端同步失败不影响服务端数据
-        }
-        return true;
+        LegacyRefresher.openPlayerView(plugin, viewer, target, enderChest,
+            auditEnabled, refreshTicks);
     }
 
     private void openContainer(Player player, Location targetLocation) {

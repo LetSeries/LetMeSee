@@ -28,6 +28,16 @@ public record ViewSession(Location location, Inventory view, Runnable canceller,
         }, ownerId);
     }
 
+    /** 容器会话快捷创建（无被查看目标）。 */
+    public static ViewSession create(Location location, Inventory view) {
+        return create(location, view, null);
+    }
+
+    /** 玩家库存会话快捷创建（无方块位置）。 */
+    public static ViewSession createForPlayer(Inventory view, UUID ownerId) {
+        return create(null, view, ownerId);
+    }
+
     public ViewSession withCanceller(Runnable canceller) {
         return new ViewSession(location, view, canceller, ownerId);
     }
@@ -79,12 +89,15 @@ public record ViewSession(Location location, Inventory view, Runnable canceller,
     }
 
     /**
-     * 把一次刷新读取应用到视图。必须在玩家线程执行。
+     * 把一次刷新内容应用到视图的通用逻辑：在线检查、界面归属检查、
+     * 内容写入、客户端同步。调用方先做各自的类型/状态校验。
+     * 必须在玩家线程执行。
      *
+     * @param closedMessage 会话结束且需要关闭界面时的提示（null 则静默清理）
      * @return 会话是否继续存活；false 表示调用方应停止定时任务
      */
-    public static boolean applyRefresh(Player player, ViewSession session,
-            ContainerSnapshots.ReadResult result) {
+    public static boolean applyContents(Player player, ViewSession session,
+            org.bukkit.inventory.ItemStack[] contents, String closedMessage) {
         UUID playerId = player.getUniqueId();
         if (!player.isOnline()) {
             close(playerId);
@@ -104,26 +117,59 @@ public record ViewSession(Location location, Inventory view, Runnable canceller,
             return false;
         }
 
-        if (result.status() != ContainerSnapshots.ReadStatus.OK) {
+        if (contents == null) {
             player.closeInventory();
-            player.sendMessage("§e容器已变化或不存在，视图已关闭");
-            close(playerId);
-            return false;
-        }
-        if (result.type() != session.view().getType()
-            || result.size() != session.view().getSize()) {
-            player.closeInventory();
-            player.sendMessage("§e容器大小已变化，请重新打开");
+            if (closedMessage != null) {
+                player.sendMessage(closedMessage);
+            }
             close(playerId);
             return false;
         }
 
-        session.view().setContents(result.contents());
+        session.view().setContents(contents);
         try {
             player.updateInventory();
         } catch (Exception ignored) {
             // 客户端同步失败不影响服务端数据
         }
         return true;
+    }
+
+    /**
+     * 把一次刷新读取应用到视图。必须在玩家线程执行。
+     *
+     * @return 会话是否继续存活；false 表示调用方应停止定时任务
+     */
+    public static boolean applyRefresh(Player player, ViewSession session,
+            ContainerSnapshots.ReadResult result) {
+        if (result.status() != ContainerSnapshots.ReadStatus.OK) {
+            // 读取失败：关闭界面并提示，内容传 null 触发清理分支
+            return applyContents(player, session, null, "§e容器已变化或不存在，视图已关闭");
+        }
+        if (result.type() != session.view().getType()
+            || result.size() != session.view().getSize()) {
+            player.closeInventory();
+            player.sendMessage("§e容器大小已变化，请重新打开");
+            close(player.getUniqueId());
+            return false;
+        }
+        return applyContents(player, session, result.contents(), null);
+    }
+
+    /**
+     * 把一次玩家库存重快照应用到视图。必须在查看者线程执行。
+     *
+     * @return 会话是否继续存活；false 表示调用方应停止定时任务
+     */
+    public static boolean applyPlayerRefresh(Player viewer, ViewSession session,
+            PlayerViews.Snapshot fresh) {
+        if (fresh.type() != session.view().getType()
+            || fresh.size() != session.view().getSize()) {
+            viewer.closeInventory();
+            viewer.sendMessage("§e目标库存已变化，请重新打开");
+            close(viewer.getUniqueId());
+            return false;
+        }
+        return applyContents(viewer, session, fresh.contents(), null);
     }
 }

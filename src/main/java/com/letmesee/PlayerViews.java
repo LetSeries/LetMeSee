@@ -29,7 +29,7 @@ public final class PlayerViews {
 
     /**
      * 快照目标玩家的背包或末影箱。必须在目标玩家线程执行（Folia 实体调度器
-     * 或 Spigot 主线程），返回 null 表示目标不在线。
+     * 或 Spigot 主线程）。目标不在线时行为未定义，调用方先检查在线状态。
      */
     public static Snapshot snapshot(Player target, boolean enderChest) {
         Inventory source = enderChest ? target.getEnderChest() : target.getInventory();
@@ -40,8 +40,8 @@ public final class PlayerViews {
     }
 
     /**
-     * 以快照打开只读视图并注册刷新会话。必须在查看者（viewer）的玩家线程执行。
-     * 刷新由调用方按各自调度方式驱动，本方法只负责首次打开与会话注册。
+     * 以快照打开只读视图并记审计。必须在查看者（viewer）的玩家线程执行。
+     * 刷新会话由调用方按各自调度方式注册，本方法只负责首次打开。
      */
     public static Inventory openSnapshot(JavaPlugin plugin, Player viewer, Snapshot snapshot,
             boolean auditEnabled) {
@@ -55,8 +55,10 @@ public final class PlayerViews {
                 "§7[只读] " + titleName);
         viewInv.setContents(snapshot.contents());
 
+        Player owner = Bukkit.getPlayer(snapshot.ownerId());
+        String where = owner == null ? "?" : describeTarget(owner);
         plugin.getLogger().info("[审计] " + viewer.getName() + "(" + viewer.getUniqueId()
-            + ") 查看了玩家 " + ownerName + "(" + snapshot.ownerId() + ") 的" + snapshot.label());
+            + ") 查看了玩家 " + where + "(" + snapshot.ownerId() + ") 的" + snapshot.label());
 
         viewer.openInventory(viewInv);
         viewer.sendMessage("§a已打开 " + ownerName + " 的" + snapshot.label() + "只读视图");

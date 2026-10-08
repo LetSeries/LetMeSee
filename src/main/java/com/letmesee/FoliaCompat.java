@@ -225,31 +225,8 @@ public final class FoliaCompat {
                         task.cancel();
                         return;
                     }
-                    if (fresh.type() != viewInv.getType() || fresh.size() != viewInv.getSize()) {
-                        viewer.closeInventory();
-                        viewer.sendMessage("§e目标库存已变化，请重新打开");
-                        ViewSession.close(viewer.getUniqueId());
+                    if (!ViewSession.applyPlayerRefresh(viewer, current, fresh)) {
                         task.cancel();
-                        return;
-                    }
-                    Inventory open;
-                    try {
-                        open = viewer.getOpenInventory().getTopInventory();
-                    } catch (Exception e) {
-                        ViewSession.close(viewer.getUniqueId());
-                        task.cancel();
-                        return;
-                    }
-                    if (open != viewInv) {
-                        ViewSession.close(viewer.getUniqueId());
-                        task.cancel();
-                        return;
-                    }
-                    viewInv.setContents(fresh.contents());
-                    try {
-                        viewer.updateInventory();
-                    } catch (Exception ignored) {
-                        // 客户端同步失败不影响服务端数据
                     }
                 });
             }, () -> {
