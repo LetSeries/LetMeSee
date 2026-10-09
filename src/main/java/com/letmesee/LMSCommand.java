@@ -195,7 +195,12 @@ public class LMSCommand implements CommandExecutor {
      * Folia 下在目标玩家线程快照，Spigot 下同步直读。
      */
     private void openPlayerView(Player viewer, String targetName, boolean enderChest) {
+        // 先精确匹配（大小写敏感），再模糊匹配（忽略大小写、前缀），
+        // 输错大小写或只输前缀也能找到
         Player target = Bukkit.getPlayerExact(targetName);
+        if (target == null) {
+            target = Bukkit.getPlayer(targetName);
+        }
         if (target == null || !target.isOnline()) {
             viewer.sendMessage("§c目标玩家不在线: " + targetName);
             return;
