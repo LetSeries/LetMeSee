@@ -55,10 +55,12 @@ public final class PlayerViews {
                 "§7[只读] " + titleName);
         viewInv.setContents(snapshot.contents());
 
-        Player owner = Bukkit.getPlayer(snapshot.ownerId());
-        String where = owner == null ? "?" : describeTarget(owner);
-        plugin.getLogger().info("[审计] " + viewer.getName() + "(" + viewer.getUniqueId()
-            + ") 查看了玩家 " + where + "(" + snapshot.ownerId() + ") 的" + snapshot.label());
+        if (auditEnabled) {
+            Player owner = Bukkit.getPlayer(snapshot.ownerId());
+            String where = owner == null ? "?" : describeTarget(owner);
+            plugin.getLogger().info("[审计] " + viewer.getName() + "(" + viewer.getUniqueId()
+                + ") 查看了玩家 " + where + "(" + snapshot.ownerId() + ") 的" + snapshot.label());
+        }
 
         viewer.openInventory(viewInv);
         viewer.sendMessage("§a已打开 " + ownerName + " 的" + snapshot.label() + "只读视图");
