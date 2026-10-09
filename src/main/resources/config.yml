@@ -1,3 +1,7 @@
+# 是否启用容器查看（/lms 准星模式与坐标模式）
+container-view: true
+# 是否启用玩家库存查看（/lms inv|ec）
+player-view: true
 # 准星模式 (/lms) 的最大距离，范围 1~64，非法值自动回退为 10
 max-target-distance: 10
 # 是否在控制台记录审计日志（谁在何时查看了哪个坐标的容器）

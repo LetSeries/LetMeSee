@@ -17,6 +17,16 @@ public final class LMSConfig {
     private LMSConfig() {
     }
 
+    /** 是否启用容器查看（/lms 准星模式与坐标模式）。 */
+    public static boolean containerViewEnabled(Configuration config) {
+        return config.getBoolean("container-view", true);
+    }
+
+    /** 是否启用玩家库存查看（/lms inv|ec）。 */
+    public static boolean playerViewEnabled(Configuration config) {
+        return config.getBoolean("player-view", true);
+    }
+
     /** 准星模式最大距离，限制 1~64，非法值回退默认。 */
     public static int maxTargetDistance(Configuration config) {
         int value = config.getInt("max-target-distance", DEFAULT_MAX_DISTANCE);

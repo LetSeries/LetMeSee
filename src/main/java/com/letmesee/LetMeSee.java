@@ -8,7 +8,7 @@ public class LetMeSee extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         getCommand("lms").setExecutor(new LMSCommand(this));
-        getCommand("lms").setTabCompleter(new LMSTabCompleter());
+        getCommand("lms").setTabCompleter(new LMSTabCompleter(this));
         getServer().getPluginManager().registerEvents(new InventoryListener(), this);
 
         if (ServerCompat.isFolia()) {

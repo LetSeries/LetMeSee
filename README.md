@@ -29,6 +29,8 @@
 
 | 项 | 默认 | 说明 |
 |----|------|------|
+| `container-view` | true | 是否启用容器查看（准星模式与坐标模式） |
+| `player-view` | true | 是否启用玩家库存查看（`/lms inv\|ec`） |
 | `max-target-distance` | 10 | `/lms` 准星模式最大距离，范围 1~64，非法值自动回退 |
 | `audit-log` | true | 是否在控制台记录审计日志 |
 | `refresh-interval-seconds` | 5 | 只读视图自动刷新间隔（秒），0 关闭，范围 0~60，非法值回退 5 |

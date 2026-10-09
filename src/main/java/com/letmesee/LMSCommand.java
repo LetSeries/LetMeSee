@@ -29,8 +29,12 @@ public class LMSCommand implements CommandExecutor {
             int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
             boolean audit = LMSConfig.auditEnabled(plugin.getConfig());
             int refreshSeconds = LMSConfig.refreshIntervalSeconds(plugin.getConfig());
-            sender.sendMessage("§a配置已重载：最大距离 " + maxDistance + " 格，审计日志 "
-                + (audit ? "开启" : "关闭") + "，刷新间隔 "
+            boolean containerView = LMSConfig.containerViewEnabled(plugin.getConfig());
+            boolean playerView = LMSConfig.playerViewEnabled(plugin.getConfig());
+            sender.sendMessage("§a配置已重载：容器查看 " + onOff(containerView)
+                + "，玩家库存查看 " + onOff(playerView)
+                + "，最大距离 " + maxDistance + " 格，审计日志 " + onOff(audit)
+                + "，刷新间隔 "
                 + (refreshSeconds == 0 ? "关闭" : refreshSeconds + " 秒"));
             return true;
         }
@@ -46,6 +50,10 @@ public class LMSCommand implements CommandExecutor {
         }
 
         if (args.length == 0) {
+            if (!LMSConfig.containerViewEnabled(plugin.getConfig())) {
+                player.sendMessage("§c容器查看功能已在配置中关闭");
+                return true;
+            }
             int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
             Block targetBlock;
             try {
@@ -69,8 +77,17 @@ public class LMSCommand implements CommandExecutor {
                 player.sendMessage("§c你没有权限查看玩家库存");
                 return true;
             }
+            if (!LMSConfig.playerViewEnabled(plugin.getConfig())) {
+                player.sendMessage("§c玩家库存查看功能已在配置中关闭");
+                return true;
+            }
             boolean enderChest = args[0].equalsIgnoreCase("ec");
             openPlayerView(player, args[1], enderChest);
+            return true;
+        }
+
+        if (args.length >= 4 && !LMSConfig.containerViewEnabled(plugin.getConfig())) {
+            player.sendMessage("§c容器查看功能已在配置中关闭");
             return true;
         }
 
@@ -132,6 +149,10 @@ public class LMSCommand implements CommandExecutor {
 
         openContainer(player, new Location(world, x, y, z));
         return true;
+    }
+
+    private static String onOff(boolean enabled) {
+        return enabled ? "开启" : "关闭";
     }
 
     /**

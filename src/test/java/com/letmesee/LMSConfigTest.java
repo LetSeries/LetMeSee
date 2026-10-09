@@ -15,6 +15,18 @@ class LMSConfigTest {
 
         assertEquals(LMSConfig.DEFAULT_MAX_DISTANCE, LMSConfig.maxTargetDistance(config));
         assertTrue(LMSConfig.auditEnabled(config));
+        assertTrue(LMSConfig.containerViewEnabled(config));
+        assertTrue(LMSConfig.playerViewEnabled(config));
+    }
+
+    @Test
+    void featureTogglesCanBeDisabled() {
+        MemoryConfiguration config = new MemoryConfiguration();
+        config.set("container-view", false);
+        config.set("player-view", false);
+
+        assertFalse(LMSConfig.containerViewEnabled(config));
+        assertFalse(LMSConfig.playerViewEnabled(config));
     }
 
     @Test

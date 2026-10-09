@@ -14,6 +14,12 @@ import java.util.Locale;
 
 public class LMSTabCompleter implements TabCompleter {
 
+    private final org.bukkit.plugin.java.JavaPlugin plugin;
+
+    public LMSTabCompleter(org.bukkit.plugin.java.JavaPlugin plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         try {
@@ -27,49 +33,48 @@ public class LMSTabCompleter implements TabCompleter {
     private List<String> complete(CommandSender sender, String[] args) {
         boolean canUse = sender.hasPermission("letmesee.use");
         boolean canReload = sender.hasPermission("letmesee.reload");
-        if (!canUse && !canReload) {
+        boolean containerOn;
+        boolean playerOn;
+        try {
+            containerOn = LMSConfig.containerViewEnabled(plugin.getConfig());
+            playerOn = LMSConfig.playerViewEnabled(plugin.getConfig());
+        } catch (Exception e) {
+            // 配置读取失败时按全开处理，不挡补全
+            containerOn = true;
+            playerOn = true;
+        }
+        boolean canContainer = canUse && containerOn;
+        boolean canPlayerView = playerOn
+            && sender.hasPermission("letmesee.player") && sender instanceof Player;
+        if (!canContainer && !canReload && !canPlayerView) {
             return List.of();
         }
 
         if (args.length == 1) {
-            boolean canPlayer =
-                sender.hasPermission("letmesee.player") && sender instanceof Player;
-            if (!canUse) {
-                List<String> only = new ArrayList<>();
-                if (canReload && "reload".startsWith(args[0].toLowerCase(Locale.ROOT))) {
-                    only.add("reload");
-                }
-                if (canPlayer) {
-                    for (String keyword : new String[]{"inv", "ec"}) {
-                        if (keyword.startsWith(args[0].toLowerCase(Locale.ROOT))) {
-                            only.add(keyword);
-                        }
-                    }
-                }
-                return only;
-            }
             String prefix = args[0].toLowerCase(Locale.ROOT);
             List<String> result = new ArrayList<>();
-            if (sender.hasPermission("letmesee.reload") && "reload".startsWith(prefix)) {
+            if (canReload && "reload".startsWith(prefix)) {
                 result.add("reload");
             }
-            if (canPlayer) {
+            if (canPlayerView) {
                 for (String keyword : new String[]{"inv", "ec"}) {
                     if (keyword.startsWith(prefix)) {
                         result.add(keyword);
                     }
                 }
             }
-            for (World world : Bukkit.getWorlds()) {
-                if (world.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                    result.add(world.getName());
+            if (canContainer) {
+                for (World world : Bukkit.getWorlds()) {
+                    if (world.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                        result.add(world.getName());
+                    }
                 }
             }
             return result;
         }
 
         // /lms inv|ec <玩家>：补在线玩家名
-        if (args.length == 2 && sender.hasPermission("letmesee.player")
+        if (args.length == 2 && canPlayerView
             && (args[0].equalsIgnoreCase("inv") || args[0].equalsIgnoreCase("ec"))) {
             String prefix = args[1].toLowerCase(Locale.ROOT);
             List<String> result = new ArrayList<>();
@@ -81,7 +86,7 @@ public class LMSTabCompleter implements TabCompleter {
             return result;
         }
 
-        if (!canUse || !(sender instanceof Player player) || args.length > 4) {
+        if (!canContainer || !(sender instanceof Player player) || args.length > 4) {
             return List.of();
         }
 
