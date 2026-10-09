@@ -28,8 +28,10 @@ public class LMSCommand implements CommandExecutor {
             plugin.reloadConfig();
             int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
             boolean audit = LMSConfig.auditEnabled(plugin.getConfig());
+            int refreshSeconds = LMSConfig.refreshIntervalSeconds(plugin.getConfig());
             sender.sendMessage("§a配置已重载：最大距离 " + maxDistance + " 格，审计日志 "
-                + (audit ? "开启" : "关闭"));
+                + (audit ? "开启" : "关闭") + "，刷新间隔 "
+                + (refreshSeconds == 0 ? "关闭" : refreshSeconds + " 秒"));
             return true;
         }
 

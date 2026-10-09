@@ -11,6 +11,9 @@ public final class LMSConfig {
     /** 准星模式最大距离默认值。 */
     public static final int DEFAULT_MAX_DISTANCE = 10;
 
+    /** 刷新间隔默认值（秒），0 表示关闭。 */
+    public static final int DEFAULT_REFRESH_SECONDS = 5;
+
     private LMSConfig() {
     }
 
@@ -29,17 +32,19 @@ public final class LMSConfig {
     }
 
     /**
-     * 只读视图刷新间隔（秒）。0 或负数表示关闭自动刷新。
-     * 范围限制 1~60，非法值回退默认 5 秒。
+     * 只读视图刷新间隔（秒）。0 表示关闭自动刷新；
+     * 负数或超过 60 视为非法值，回退默认。
      */
+    public static int refreshIntervalSeconds(Configuration config) {
+        int seconds = config.getInt("refresh-interval-seconds", DEFAULT_REFRESH_SECONDS);
+        if (seconds < 0 || seconds > 60) {
+            return DEFAULT_REFRESH_SECONDS;
+        }
+        return seconds;
+    }
+
+    /** 只读视图刷新间隔（tick），0 表示关闭。 */
     public static int refreshIntervalTicks(Configuration config) {
-        int seconds = config.getInt("refresh-interval-seconds", 5);
-        if (seconds <= 0) {
-            return 0;
-        }
-        if (seconds > 60) {
-            return 60 * 20;
-        }
-        return seconds * 20;
+        return refreshIntervalSeconds(config) * 20;
     }
 }

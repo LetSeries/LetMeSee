@@ -46,27 +46,36 @@ class LMSConfigTest {
 
     @Test
     void refreshIntervalDefaultsToFiveSeconds() {
+        assertEquals(5, LMSConfig.refreshIntervalSeconds(new MemoryConfiguration()));
         assertEquals(5 * 20, LMSConfig.refreshIntervalTicks(new MemoryConfiguration()));
     }
 
     @Test
     void refreshIntervalZeroDisables() {
-        for (int off : new int[]{0, -1, -60}) {
-            MemoryConfiguration config = new MemoryConfiguration();
-            config.set("refresh-interval-seconds", off);
+        MemoryConfiguration config = new MemoryConfiguration();
+        config.set("refresh-interval-seconds", 0);
 
-            assertEquals(0, LMSConfig.refreshIntervalTicks(config), "seconds=" + off);
+        assertEquals(0, LMSConfig.refreshIntervalSeconds(config));
+        assertEquals(0, LMSConfig.refreshIntervalTicks(config));
+    }
+
+    @Test
+    void refreshIntervalOutOfRangeFallsBackToDefault() {
+        for (int bad : new int[]{-1, -60, 61, 3600}) {
+            MemoryConfiguration config = new MemoryConfiguration();
+            config.set("refresh-interval-seconds", bad);
+
+            assertEquals(LMSConfig.DEFAULT_REFRESH_SECONDS,
+                LMSConfig.refreshIntervalSeconds(config), "seconds=" + bad);
         }
     }
 
     @Test
-    void refreshIntervalConvertsAndCaps() {
+    void refreshIntervalConvertsToTicks() {
         MemoryConfiguration config = new MemoryConfiguration();
         config.set("refresh-interval-seconds", 10);
-        assertEquals(10 * 20, LMSConfig.refreshIntervalTicks(config));
 
-        MemoryConfiguration capped = new MemoryConfiguration();
-        capped.set("refresh-interval-seconds", 3600);
-        assertEquals(60 * 20, LMSConfig.refreshIntervalTicks(capped));
+        assertEquals(10, LMSConfig.refreshIntervalSeconds(config));
+        assertEquals(10 * 20, LMSConfig.refreshIntervalTicks(config));
     }
 }
