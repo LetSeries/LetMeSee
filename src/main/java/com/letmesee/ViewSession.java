@@ -126,6 +126,11 @@ public record ViewSession(Location location, Inventory view, Runnable canceller,
             return false;
         }
 
+        // 写入前复查：会话可能在检查间隙被顶掉（新开视图），
+        // 旧定时任务不得写入新会话的界面
+        if (get(playerId) != session) {
+            return false;
+        }
         session.view().setContents(contents);
         try {
             player.updateInventory();

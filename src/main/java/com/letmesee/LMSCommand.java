@@ -195,13 +195,35 @@ public class LMSCommand implements CommandExecutor {
      * Folia 下在目标玩家线程快照，Spigot 下同步直读。
      */
     private void openPlayerView(Player viewer, String targetName, boolean enderChest) {
-        // 先精确匹配（大小写敏感），再模糊匹配（忽略大小写、前缀），
-        // 输错大小写或只输前缀也能找到
+        // 1) 精确匹配（大小写敏感）；2) 唯一前缀匹配（忽略大小写）；
+        // 多个候选时拒绝打开并列出，防止看错人
         Player target = Bukkit.getPlayerExact(targetName);
         if (target == null) {
-            target = Bukkit.getPlayer(targetName);
+            java.util.List<Player> candidates = new java.util.ArrayList<>();
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (online.getName().toLowerCase(java.util.Locale.ROOT)
+                    .startsWith(targetName.toLowerCase(java.util.Locale.ROOT))) {
+                    candidates.add(online);
+                }
+            }
+            if (candidates.isEmpty()) {
+                viewer.sendMessage("§c目标玩家不在线: " + targetName);
+                return;
+            }
+            if (candidates.size() > 1) {
+                StringBuilder names = new StringBuilder();
+                for (Player candidate : candidates) {
+                    if (names.length() > 0) {
+                        names.append("、");
+                    }
+                    names.append(candidate.getName());
+                }
+                viewer.sendMessage("§c匹配到多个玩家，请补全全名: " + names);
+                return;
+            }
+            target = candidates.get(0);
         }
-        if (target == null || !target.isOnline()) {
+        if (!target.isOnline()) {
             viewer.sendMessage("§c目标玩家不在线: " + targetName);
             return;
         }
