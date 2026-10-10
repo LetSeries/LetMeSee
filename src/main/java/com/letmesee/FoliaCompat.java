@@ -115,16 +115,19 @@ public final class FoliaCompat {
             }, refreshTicks, refreshTicks);
         ref.set(scheduled);
         ViewSession.register(player,
-            ViewSession.create(targetLocation, viewInv).withCanceller(() -> {
-                ScheduledTask current = ref.get();
-                if (current != null) {
-                    try {
-                        current.cancel();
-                    } catch (Exception ignored) {
-                        // 卸载期取消失败可忽略
-                    }
-                }
-            }));
+            ViewSession.create(targetLocation, viewInv).withCanceller(() -> cancelQuietly(ref)));
+    }
+
+    /** 静默取消定时任务，卸载期失败可忽略。 */
+    private static void cancelQuietly(AtomicReference<ScheduledTask> ref) {
+        ScheduledTask current = ref.get();
+        if (current != null) {
+            try {
+                current.cancel();
+            } catch (Exception ignored) {
+                // 卸载期取消失败可忽略
+            }
+        }
     }
 
     private static void runOnPlayer(JavaPlugin plugin, Player player, Runnable action) {
@@ -239,15 +242,7 @@ public final class FoliaCompat {
         // 注意：会话注册必须先于 openInventory 触发的 CloseEvent？不，
         // 注册在这里（仍在查看者线程回调内），顺序与容器路径一致。
         ViewSession.register(viewer,
-            ViewSession.createForPlayer(viewInv, targetId).withCanceller(() -> {
-                ScheduledTask current = ref.get();
-                if (current != null) {
-                    try {
-                        current.cancel();
-                    } catch (Exception ignored) {
-                        // 卸载期取消失败可忽略
-                    }
-                }
-            }));
+            ViewSession.createForPlayer(viewInv, targetId)
+                .withCanceller(() -> cancelQuietly(ref)));
     }
 }
