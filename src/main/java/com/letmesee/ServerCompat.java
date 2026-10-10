@@ -49,9 +49,7 @@ public final class ServerCompat {
     public static void openFoliaContainer(JavaPlugin plugin, Player player,
             Location targetLocation, boolean auditEnabled, int refreshTicks) {
         try {
-            Class<?> compat = Class.forName("com.letmesee.FoliaCompat");
-            Method method = compat.getMethod("openContainer", JavaPlugin.class, Player.class,
-                Location.class, boolean.class, int.class, FoliaOpener.class);
+            Method method = FoliaMethods.openContainer();
             method.invoke(null, plugin, player, targetLocation, auditEnabled, refreshTicks,
                 (FoliaOpener) (viewInv, plainName, where) -> {
                     player.openInventory(viewInv);
@@ -60,6 +58,49 @@ public final class ServerCompat {
         } catch (ReflectiveOperationException e) {
             plugin.getLogger().warning("[LetMeSee] Folia 模式进入失败，已取消本次查看: " + e);
             player.sendMessage("§c打开只读视图失败，请稍后重试");
+        }
+    }
+
+    /**
+     * Folia 反射句柄懒缓存。独立嵌套类，JVM 加载是 lazy 的：
+     * Spigot 上 {@code isFolia()} 为 false，调用方永远不会执行到这里，
+     * 因此永远不会触发 {@code FoliaCompat} 类加载。
+     */
+    private static final class FoliaMethods {
+        private static volatile Method openContainer;
+        private static volatile Method openPlayerView;
+
+        static Method openContainer() throws ReflectiveOperationException {
+            Method cached = openContainer;
+            if (cached == null) {
+                synchronized (FoliaMethods.class) {
+                    cached = openContainer;
+                    if (cached == null) {
+                        cached = Class.forName("com.letmesee.FoliaCompat").getMethod(
+                            "openContainer", JavaPlugin.class, Player.class,
+                            Location.class, boolean.class, int.class, FoliaOpener.class);
+                        openContainer = cached;
+                    }
+                }
+            }
+            return cached;
+        }
+
+        static Method openPlayerView() throws ReflectiveOperationException {
+            Method cached = openPlayerView;
+            if (cached == null) {
+                synchronized (FoliaMethods.class) {
+                    cached = openPlayerView;
+                    if (cached == null) {
+                        cached = Class.forName("com.letmesee.FoliaCompat").getMethod(
+                            "openPlayerView", JavaPlugin.class, Player.class,
+                            java.util.UUID.class, boolean.class, boolean.class,
+                            int.class, FoliaPlayerOpener.class);
+                        openPlayerView = cached;
+                    }
+                }
+            }
+            return cached;
         }
     }
 
@@ -77,10 +118,7 @@ public final class ServerCompat {
             java.util.UUID targetId, boolean enderChest, boolean auditEnabled,
             int refreshTicks) {
         try {
-            Class<?> compat = Class.forName("com.letmesee.FoliaCompat");
-            Method method = compat.getMethod("openPlayerView", JavaPlugin.class,
-                Player.class, java.util.UUID.class, boolean.class, boolean.class,
-                int.class, FoliaPlayerOpener.class);
+            Method method = FoliaMethods.openPlayerView();
             method.invoke(null, plugin, viewer, targetId, enderChest, auditEnabled,
                 refreshTicks, (FoliaPlayerOpener) (viewInv, snapshot) -> {
                     viewer.openInventory(viewInv);
