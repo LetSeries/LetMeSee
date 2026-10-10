@@ -10,6 +10,10 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
 public class LMSCommand implements CommandExecutor {
 
     private final JavaPlugin plugin;
@@ -199,10 +203,10 @@ public class LMSCommand implements CommandExecutor {
         // 多个候选时拒绝打开并列出，防止看错人
         Player target = Bukkit.getPlayerExact(targetName);
         if (target == null) {
-            java.util.List<Player> candidates = new java.util.ArrayList<>();
+            List<Player> candidates = new ArrayList<>();
             for (Player online : Bukkit.getOnlinePlayers()) {
-                if (online.getName().toLowerCase(java.util.Locale.ROOT)
-                    .startsWith(targetName.toLowerCase(java.util.Locale.ROOT))) {
+                if (online.getName().toLowerCase(Locale.ROOT)
+                    .startsWith(targetName.toLowerCase(Locale.ROOT))) {
                     candidates.add(online);
                 }
             }

@@ -7,9 +7,9 @@ folia-supported: true
 commands:
   lms:
     description: "只读查看任意容器的物品"
-    usage: "/lms [世界 X Y Z] / /lms reload"
+    usage: "/lms [世界 X Y Z] / /lms inv|ec <玩家> / /lms reload"
     # 注意：此处不声明 permission，权限由 LMSCommand 按子命令分别检查
-    #（letmesee.use 查看容器，letmesee.reload 重载配置）
+    #（letmesee.use 查看容器，letmesee.player 查看玩家库存，letmesee.reload 重载配置）
 
 permissions:
   letmesee.use:
