@@ -115,7 +115,7 @@ public final class FoliaCompat {
             }, refreshTicks, refreshTicks);
         ref.set(scheduled);
         ViewSession.register(player,
-            ViewSession.create(targetLocation, viewInv, null).withCanceller(() -> {
+            ViewSession.create(targetLocation, viewInv).withCanceller(() -> {
                 ScheduledTask current = ref.get();
                 if (current != null) {
                     try {
@@ -239,7 +239,7 @@ public final class FoliaCompat {
         // 注意：会话注册必须先于 openInventory 触发的 CloseEvent？不，
         // 注册在这里（仍在查看者线程回调内），顺序与容器路径一致。
         ViewSession.register(viewer,
-            ViewSession.create(null, viewInv, targetId).withCanceller(() -> {
+            ViewSession.createForPlayer(viewInv, targetId).withCanceller(() -> {
                 ScheduledTask current = ref.get();
                 if (current != null) {
                     try {
