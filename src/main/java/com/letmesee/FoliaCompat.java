@@ -67,14 +67,17 @@ public final class FoliaCompat {
             ? Component.text(result.fullName())
             : customName;
         String rawPlain = PlainTextComponentSerializer.plainText().serialize(rawBody);
-        String shownName = ContainerSnapshots.truncate(rawPlain, 32);
+        String shownName = ReadOnlyViews.body(rawPlain);
         Component body = shownName.equals(rawPlain) ? rawBody : Component.text(shownName);
-        Component title = Component.text("[只读] ", NamedTextColor.GRAY).append(body);
+        Component title = Component.text(ReadOnlyViews.PREFIX, NamedTextColor.GRAY)
+            .append(body);
 
+        ReadOnlyHolder holder = new ReadOnlyHolder();
         InventoryType type = result.type();
         Inventory viewInv = type == InventoryType.CHEST
-            ? Bukkit.createInventory(new ReadOnlyHolder(), result.size(), title)
-            : Bukkit.createInventory(new ReadOnlyHolder(), type, title);
+            ? Bukkit.createInventory(holder, result.size(), title)
+            : Bukkit.createInventory(holder, type, title);
+        holder.attach(viewInv);
         viewInv.setContents(result.contents());
 
         ContainerSnapshots.audit(plugin, player, targetLocation, result.blockType(),
@@ -84,17 +87,20 @@ public final class FoliaCompat {
         String where = ContainerSnapshots.describe(targetLocation);
         runOnPlayer(plugin, player, () -> {
             opener.open(viewInv, plainName, where);
+            ViewSession session = ViewSession.create(targetLocation, viewInv);
             if (refreshTicks > 0) {
-                scheduleRefresh(plugin, player, targetLocation, refreshTicks, viewInv);
+                session = session.withCanceller(
+                    scheduleRefresh(plugin, player, targetLocation, refreshTicks, viewInv));
             }
+            ViewSession.register(player, session);
         });
     }
 
     /**
-     * 在目标区域线程定时重读，玩家线程应用。任务结束条件：
-     * 会话关闭、玩家离线/换界面、容器消失或变尺寸。
+     * 在目标区域线程定时重读，玩家线程应用。返回取消器。
+     * 任务结束条件：会话关闭、玩家离线/换界面、容器消失或变尺寸。
      */
-    private static void scheduleRefresh(JavaPlugin plugin, Player player,
+    private static Runnable scheduleRefresh(JavaPlugin plugin, Player player,
             Location targetLocation, int refreshTicks, Inventory viewInv) {
         AtomicReference<ScheduledTask> ref = new AtomicReference<>();
         ScheduledTask scheduled = Bukkit.getRegionScheduler().runAtFixedRate(
@@ -114,8 +120,7 @@ public final class FoliaCompat {
                 });
             }, refreshTicks, refreshTicks);
         ref.set(scheduled);
-        ViewSession.register(player,
-            ViewSession.create(targetLocation, viewInv).withCanceller(() -> cancelQuietly(ref)));
+        return () -> cancelQuietly(ref);
     }
 
     /** 静默取消定时任务，卸载期失败可忽略。 */
@@ -169,25 +174,28 @@ public final class FoliaCompat {
                 Inventory viewInv = PlayerViews.openSnapshot(plugin, viewer, snapshot,
                     auditEnabled);
                 opener.open(viewInv, snapshot);
+                ViewSession session = ViewSession.createForPlayer(viewInv, targetId);
                 if (refreshTicks > 0) {
-                    schedulePlayerRefresh(plugin, viewer, targetId, enderChest,
-                        refreshTicks, viewInv);
+                    session = session.withCanceller(schedulePlayerRefresh(plugin, viewer,
+                        targetId, enderChest, refreshTicks, viewInv));
                 }
+                ViewSession.register(viewer, session);
             });
         }, () -> viewer.sendMessage("§c目标玩家不在可访问区域"));
     }
 
     /**
-     * 在被查看目标线程定时重快照，查看者线程应用。任务结束条件：
-     * 会话关闭、任一玩家离线/换界面、目标库存类型变化。
+     * 在被查看目标线程定时重快照，查看者线程应用。返回取消器。
+     * 任务结束条件：会话关闭、任一玩家离线/换界面、目标库存类型变化。
      */
-    private static void schedulePlayerRefresh(JavaPlugin plugin, Player viewer,
+    private static Runnable schedulePlayerRefresh(JavaPlugin plugin, Player viewer,
             java.util.UUID targetId, boolean enderChest, int refreshTicks,
             Inventory viewInv) {
         AtomicReference<ScheduledTask> ref = new AtomicReference<>();
         Player target = Bukkit.getPlayer(targetId);
         if (target == null) {
-            return;
+            return () -> {
+            };
         }
         ScheduledTask scheduled = target.getScheduler().runAtFixedRate(plugin,
             task -> {
@@ -239,10 +247,6 @@ public final class FoliaCompat {
                 });
             }, refreshTicks, refreshTicks);
         ref.set(scheduled);
-        // 注意：会话注册必须先于 openInventory 触发的 CloseEvent？不，
-        // 注册在这里（仍在查看者线程回调内），顺序与容器路径一致。
-        ViewSession.register(viewer,
-            ViewSession.createForPlayer(viewInv, targetId)
-                .withCanceller(() -> cancelQuietly(ref)));
+        return () -> cancelQuietly(ref);
     }
 }

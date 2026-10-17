@@ -109,6 +109,32 @@ public final class ContainerSnapshots {
     }
 
     /**
+     * 两批物品内容是否完全一致（类型、数量、Meta 全部相同）。
+     * 刷新时用它跳过无变化的写入与 {@code updateInventory}，
+     * 避免视图每隔几秒被整批重写导致客户端闪烁、光标物品被刷掉。
+     */
+    public static boolean sameContents(ItemStack[] current, ItemStack[] fresh) {
+        if (current == fresh) {
+            return true;
+        }
+        if (current == null || fresh == null || current.length != fresh.length) {
+            return false;
+        }
+        for (int i = 0; i < current.length; i++) {
+            ItemStack a = current[i];
+            ItemStack b = fresh[i];
+            if (a == null) {
+                if (b != null) {
+                    return false;
+                }
+            } else if (!a.equals(b)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * 截断过长的展示名，避免只读视图标题在客户端显示异常。
      * 审计日志记录的是完整名称，不受影响。
      */

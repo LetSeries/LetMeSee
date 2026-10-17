@@ -7,11 +7,12 @@
 - **只读查看** — 通过 `/lms` 指令以只读模式打开箱子、木桶、潜影盒、熔炉等容器，
   或用 `/lms inv|ec <玩家>` 查看在线玩家的背包与末影箱
 - **绕过保护** — 直接读取方块与库存数据，不调用任何保护插件 API
-- **双模式兼容** — Folia / Paper 下走区域 / 实体调度线程，Spigot 下自动降级为同步直读
+- **双模式兼容** — Folia 下走区域 / 实体调度线程；Paper / Spigot 走同步直读（单线程，天然安全）
 - **中文界面** — 容器名称自动本地化（箱子、熔炉、漏斗等）；玩家库存标题显示所属玩家
 - **审计日志** — 每次查看都会在控制台记录查看者、目标（坐标或玩家名）与容器类型
 - **只读保护** — 查看期间拦截全部点击和拖拽，物品拿不走、放不进、复制不了
-- **自动刷新** — 视图按配置间隔自动同步目标变化；目标消失、变尺寸或下线时自动关闭
+- **自动刷新** — 视图按配置间隔自动同步目标变化；内容未变化时跳过重写，不闪烁；
+  目标消失、变尺寸或下线时自动关闭
 
 ## 指令
 
@@ -45,6 +46,9 @@
 | `letmesee.player` | op | 允许使用 `/lms inv\|ec` 查看玩家库存 |
 | `letmesee.reload` | op | 允许使用 `/lms reload` 重载配置 |
 
+三个权限互相独立：只授予 `letmesee.player` 的组也能使用 `inv|ec`，不需要额外的
+`letmesee.use`；`letmesee.reload` 同理。
+
 ## 安全说明
 
 - 本插件设计目标就是绕过领地 / 商店保护查看容器，**授权限即授偷看权**：
@@ -74,11 +78,12 @@
 
 | 服务端 | 模式 |
 |--------|------|
-| Folia / Paper / Leaf 等 | 区域调度模式：容器在目标区域线程读取，玩家库存走实体调度器，均回到查看者线程打开 |
-| Spigot / CraftBukkit | 同步模式：单线程直读直开（无跨线程操作） |
+| Folia / 其它区域化服务端 | 区域调度模式：容器在目标区域线程读取，玩家库存走实体调度器，均回到查看者线程打开 |
+| Paper / Spigot / CraftBukkit | 同步模式：单线程直读直开（无跨线程操作） |
 
-启动时插件会自动检测并记录当前模式。`plugin.yml` 保留 `folia-supported: true`，
-Spigot 会忽略该字段正常加载。
+启动时插件会检测服务端本体是否区域化（以 Folia 独有的区域化服务端主类为准，
+而不是只看调度 API 是否存在——后者在 Paper 上也有），并在日志中记录当前模式。
+`plugin.yml` 保留 `folia-supported: true`，Spigot 会忽略该字段正常加载。
 
 ## 安装
 
@@ -95,8 +100,9 @@ Spigot 会忽略该字段正常加载。
 3. 把克隆结果放进由 `ReadOnlyHolder` 标记的虚拟库存并打开只读视图；
    每次查看都会在控制台记一条审计日志
 4. 查看期间 `InventoryListener` 会取消全部点击和拖拽，避免拿走、放入或复制物品
-5. 刷新定时器按 `refresh-interval-seconds` 重读目标并同步到视图；
-   容器消失、变尺寸、被查看玩家下线时自动关闭视图并结束会话；
+5. 刷新定时器按 `refresh-interval-seconds` 重读目标并同步到视图；内容与当前视图
+   完全一致时跳过写入与客户端同步，避免每隔几秒刷一次屏；容器消失、变尺寸、
+   被查看玩家下线时自动关闭视图并结束会话；
    关闭界面、退出游戏、打开新视图、插件卸载都会取消定时任务，不泄漏
 
 ## 常见问题
@@ -146,15 +152,17 @@ gradle build
 
 ```
 src/main/java/com/letmesee/
-├── LetMeSee.java          # 插件入口：注册命令、监听器，启动时检测运行模式
+├── LetMeSee.java          # 插件入口：注册命令、监听器，启动时检测运行模式并回显配置
 ├── LMSCommand.java        # /lms 命令：参数解析，Folia/Spigot 双路径分流
+├── CommandRouter.java     # 子命令路由与权限判定（纯函数，可单测）
 ├── PlayerViews.java       # 玩家背包/末影箱快照与只读打开（中立层）
-├── LegacyRefresher.java   # Spigot 同步路径：打开视图 + 定时刷新
-├── FoliaCompat.java       # Folia/Paper 隔离层（区域线程读取，玩家线程打开）
+├── LegacyRefresher.java   # 同步路径（Paper/Spigot）：打开视图 + 定时刷新
+├── FoliaCompat.java       # Folia 隔离层（区域线程读取，玩家线程打开）
 ├── ServerCompat.java      # 零依赖环境检测，经反射进入 FoliaCompat
 ├── ContainerNames.java    # 方块类型到中文名的映射（任意线程可调用）
 ├── LMSConfig.java         # config.yml 视图：查看距离、审计开关、刷新间隔
-├── ContainerSnapshots.java# 容器读取、物品克隆与审计日志（与服务端实现无关）
+├── ContainerSnapshots.java# 容器读取、物品克隆、内容比对与审计日志（与服务端实现无关）
+├── ReadOnlyViews.java     # 只读虚拟库存创建与标题格式化（三条打开路径共用）
 ├── ViewSession.java       # 只读查看会话：注册、刷新应用、关闭清理
 ├── InventoryListener.java # 取消只读界面的点击/拖拽，关闭与退出时结束会话
 ├── LMSTabCompleter.java   # 世界名、坐标、玩家名补全
@@ -166,6 +174,18 @@ src/main/java/com/letmesee/
 - 管理员检查玩家容器是否存在违规物品
 - 调试和排查容器数据问题
 - 绕过地皮/领地保护查看公共设施
+
+## 更新记录
+
+### 1.2.0
+
+- 修复：只授予 `letmesee.player` 时 `/lms inv|ec` 仍被 `letmesee.use` 拦截
+- 修复：Paper 被误判为 Folia 区域调度模式；改为按服务端本体检测，
+  Paper / Spigot 统一走同步路径
+- 优化：刷新时内容未变化则跳过写入与客户端同步，视图不再周期性闪烁
+- 优化：只读库存创建与标题格式化收敛到 `ReadOnlyViews`，三条打开路径行为一致
+- 优化：关闭自动刷新时也注册会话，玩家退出、插件卸载仍能统一清理
+- 优化：启动日志回显当前生效配置；`/lms` 路由与权限判定独立成纯函数并补齐单测
 
 ## 许可
 

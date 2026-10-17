@@ -24,91 +24,79 @@ public class LMSCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
-            if (!sender.hasPermission("letmesee.reload")) {
-                sender.sendMessage("§c你没有权限重载配置");
-                return true;
+        // 权限与开关的判断全部收敛到 CommandRouter（纯函数、有单测），
+        // 这里只负责把决策翻译成具体动作和提示语
+        CommandRouter.Access access = new CommandRouter.Access(
+            sender instanceof Player,
+            sender.hasPermission("letmesee.use"),
+            sender.hasPermission("letmesee.player"),
+            sender.hasPermission("letmesee.reload"),
+            LMSConfig.containerViewEnabled(plugin.getConfig()),
+            LMSConfig.playerViewEnabled(plugin.getConfig()));
+        CommandRouter.Decision decision = CommandRouter.route(access, args);
+
+        if (!decision.allowed()) {
+            sender.sendMessage(denialMessage(decision.denial()));
+            return true;
+        }
+
+        if (decision.route() == CommandRouter.Route.RELOAD) {
+            reload(sender);
+            return true;
+        }
+
+        // 路由已保证剩余路径都是玩家发起的
+        Player player = (Player) sender;
+        switch (decision.route()) {
+            case CONTAINER_TARGET -> openTargetedContainer(player);
+            case CONTAINER_COORDS -> openContainerAt(player, args);
+            case PLAYER_VIEW -> openPlayerView(player, args[1],
+                args[0].equalsIgnoreCase("ec"));
+            case RELOAD, REJECTED -> {
+                // 不可能到达：上面已处理
             }
-            plugin.reloadConfig();
-            int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
-            boolean audit = LMSConfig.auditEnabled(plugin.getConfig());
-            int refreshSeconds = LMSConfig.refreshIntervalSeconds(plugin.getConfig());
-            boolean containerView = LMSConfig.containerViewEnabled(plugin.getConfig());
-            boolean playerView = LMSConfig.playerViewEnabled(plugin.getConfig());
-            sender.sendMessage("§a配置已重载：容器查看 " + onOff(containerView)
-                + "，玩家库存查看 " + onOff(playerView)
-                + "，最大距离 " + maxDistance + " 格，审计日志 " + onOff(audit)
-                + "，刷新间隔 "
-                + (refreshSeconds == 0 ? "关闭" : refreshSeconds + " 秒"));
-            return true;
         }
+        return true;
+    }
 
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("§c只有玩家可以使用此命令");
-            return true;
+    /** 重载配置并回显生效值。控制台与玩家共用。 */
+    private void reload(CommandSender sender) {
+        plugin.reloadConfig();
+        int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
+        boolean audit = LMSConfig.auditEnabled(plugin.getConfig());
+        int refreshSeconds = LMSConfig.refreshIntervalSeconds(plugin.getConfig());
+        boolean containerView = LMSConfig.containerViewEnabled(plugin.getConfig());
+        boolean playerView = LMSConfig.playerViewEnabled(plugin.getConfig());
+        sender.sendMessage("§a配置已重载：容器查看 " + onOff(containerView)
+            + "，玩家库存查看 " + onOff(playerView)
+            + "，最大距离 " + maxDistance + " 格，审计日志 " + onOff(audit)
+            + "，刷新间隔 "
+            + (refreshSeconds == 0 ? "关闭" : refreshSeconds + " 秒"));
+    }
+
+    /** 准星模式：读取玩家正对的方块并打开只读视图。 */
+    private void openTargetedContainer(Player player) {
+        int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
+        Block targetBlock;
+        try {
+            targetBlock = player.getTargetBlockExact(maxDistance);
+        } catch (IllegalStateException e) {
+            player.sendMessage("§c目标不在当前区域，请改用 /lms <世界> <X> <Y> <Z>");
+            return;
         }
-
-        if (!player.hasPermission("letmesee.use")) {
-            player.sendMessage("§c你没有权限使用此命令");
-            return true;
+        if (targetBlock == null) {
+            player.sendMessage("§c请将准星对准一个容器（最大距离 " + maxDistance + " 格）");
+            return;
         }
+        openContainer(player, targetBlock.getLocation());
+    }
 
-        if (args.length == 0) {
-            if (!LMSConfig.containerViewEnabled(plugin.getConfig())) {
-                player.sendMessage("§c容器查看功能已在配置中关闭");
-                return true;
-            }
-            int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
-            Block targetBlock;
-            try {
-                targetBlock = player.getTargetBlockExact(maxDistance);
-            } catch (IllegalStateException e) {
-                player.sendMessage("§c目标不在当前区域，请改用 /lms <世界> <X> <Y> <Z>");
-                return true;
-            }
-            if (targetBlock == null) {
-                player.sendMessage("§c请将准星对准一个容器（最大距离 " + maxDistance + " 格）");
-                return true;
-            }
-
-            openContainer(player, targetBlock.getLocation());
-            return true;
-        }
-
-        if (args.length == 2
-            && (args[0].equalsIgnoreCase("inv") || args[0].equalsIgnoreCase("ec"))) {
-            if (!player.hasPermission("letmesee.player")) {
-                player.sendMessage("§c你没有权限查看玩家库存");
-                return true;
-            }
-            if (!LMSConfig.playerViewEnabled(plugin.getConfig())) {
-                player.sendMessage("§c玩家库存查看功能已在配置中关闭");
-                return true;
-            }
-            boolean enderChest = args[0].equalsIgnoreCase("ec");
-            openPlayerView(player, args[1], enderChest);
-            return true;
-        }
-
-        if (args.length >= 4 && !LMSConfig.containerViewEnabled(plugin.getConfig())) {
-            player.sendMessage("§c容器查看功能已在配置中关闭");
-            return true;
-        }
-
-        if (args.length < 4) {
-            player.sendMessage("§c用法: /lms <世界> <X> <Y> <Z>，或 /lms <inv|ec> <玩家>");
-            return true;
-        }
-
-        if (args.length > 4) {
-            player.sendMessage("§c参数过多，用法: /lms <世界> <X> <Y> <Z>");
-            return true;
-        }
-
+    /** 坐标模式：校验世界、区块、高度与坐标格式后打开。 */
+    private void openContainerAt(Player player, String[] args) {
         World world = Bukkit.getWorld(args[0]);
         if (world == null) {
             player.sendMessage("§c未找到世界: " + args[0]);
-            return true;
+            return;
         }
 
         Location origin;
@@ -123,9 +111,12 @@ public class LMSCommand implements CommandExecutor {
                 || args[2].trim().startsWith("~")
                 || args[3].trim().startsWith("~"))) {
             player.sendMessage("§c当前无法读取你的位置，相对坐标（~）不可用，请使用绝对坐标");
-            return true;
+            return;
         }
-        int x, y, z;
+
+        int x;
+        int y;
+        int z;
         try {
             int baseX = origin == null ? 0 : origin.getBlockX();
             int baseY = origin == null ? 0 : origin.getBlockY();
@@ -134,13 +125,14 @@ public class LMSCommand implements CommandExecutor {
             y = parseCoordinate(args[2], baseY);
             z = parseCoordinate(args[3], baseZ);
         } catch (NumberFormatException e) {
-            player.sendMessage("§c坐标必须为 -30000000 到 30000000 之间的整数，相对坐标可用 ~（如 ~ ~1 ~-2）");
-            return true;
+            player.sendMessage("§c坐标必须为 -30000000 到 30000000 之间的整数，"
+                + "相对坐标可用 ~（如 ~ ~1 ~-2）");
+            return;
         }
 
         if (!world.isChunkLoaded(x >> 4, z >> 4)) {
             player.sendMessage("§e该区块尚未加载，请先靠近目标位置再试");
-            return true;
+            return;
         }
 
         // getMinHeight/getMaxHeight 来自 WorldInfo，Paper 与 Spigot 均有
@@ -148,15 +140,27 @@ public class LMSCommand implements CommandExecutor {
         int maxY = world.getMaxHeight();
         if (y < minY || y >= maxY) {
             player.sendMessage("§cY 坐标超出该世界高度范围（" + minY + " ~ " + (maxY - 1) + "）");
-            return true;
+            return;
         }
 
         openContainer(player, new Location(world, x, y, z));
-        return true;
     }
 
     private static String onOff(boolean enabled) {
         return enabled ? "开启" : "关闭";
+    }
+
+    private static String denialMessage(CommandRouter.Denial denial) {
+        return switch (denial) {
+            case NOT_PLAYER -> "§c只有玩家可以使用此命令";
+            case NO_USE_PERMISSION -> "§c你没有权限使用此命令";
+            case NO_PLAYER_PERMISSION -> "§c你没有权限查看玩家库存";
+            case NO_RELOAD_PERMISSION -> "§c你没有权限重载配置";
+            case CONTAINER_DISABLED -> "§c容器查看功能已在配置中关闭";
+            case PLAYER_DISABLED -> "§c玩家库存查看功能已在配置中关闭";
+            case USAGE -> "§c用法: /lms <世界> <X> <Y> <Z>，或 /lms <inv|ec> <玩家>";
+            case NONE -> "";
+        };
     }
 
     /**
@@ -196,17 +200,17 @@ public class LMSCommand implements CommandExecutor {
 
     /**
      * 只读查看目标玩家的背包或末影箱。目标离线直接提示；
-     * Folia 下在目标玩家线程快照，Spigot 下同步直读。
+     * Folia 下在目标玩家线程快照，其余服务端同步直读。
      */
     private void openPlayerView(Player viewer, String targetName, boolean enderChest) {
         // 1) 精确匹配（大小写敏感）；2) 唯一前缀匹配（忽略大小写）；
         // 多个候选时拒绝打开并列出，防止看错人
         Player target = Bukkit.getPlayerExact(targetName);
         if (target == null) {
+            String lowerPrefix = targetName.toLowerCase(Locale.ROOT);
             List<Player> candidates = new ArrayList<>();
             for (Player online : Bukkit.getOnlinePlayers()) {
-                if (online.getName().toLowerCase(Locale.ROOT)
-                    .startsWith(targetName.toLowerCase(Locale.ROOT))) {
+                if (online.getName().toLowerCase(Locale.ROOT).startsWith(lowerPrefix)) {
                     candidates.add(online);
                 }
             }

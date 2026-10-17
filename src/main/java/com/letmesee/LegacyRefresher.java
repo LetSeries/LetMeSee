@@ -10,7 +10,7 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Spigot / CraftBukkit 同步路径：打开只读视图并按配置自动刷新。
+ * Spigot / CraftBukkit / Paper 同步路径：打开只读视图并按配置自动刷新。
  * 单线程执行，无跨线程操作。只引用 Bukkit + JDK，可安全加载。
  */
 public final class LegacyRefresher {
@@ -30,12 +30,9 @@ public final class LegacyRefresher {
             return;
         }
 
-        String containerName = ContainerSnapshots.truncate(result.fullName(), 32);
-        Inventory viewInv = result.type() == org.bukkit.event.inventory.InventoryType.CHEST
-            ? Bukkit.createInventory(new ReadOnlyHolder(), result.size(),
-                "§7[只读] " + containerName)
-            : Bukkit.createInventory(new ReadOnlyHolder(), result.type(),
-                "§7[只读] " + containerName);
+        String containerName = ReadOnlyViews.body(result.fullName());
+        Inventory viewInv = ReadOnlyViews.create(result.type(), result.size(),
+            result.fullName());
         viewInv.setContents(result.contents());
 
         ContainerSnapshots.audit(plugin, player, targetLocation, result.blockType(),
@@ -45,10 +42,23 @@ public final class LegacyRefresher {
         player.sendMessage("§a已打开 " + containerName + " 的只读视图 §7"
             + ContainerSnapshots.describe(targetLocation));
 
+        // 注册必须在 openInventory 之后：打开新界面会先为旧界面触发 CloseEvent，
+        // 若此时新会话已入表，反而会被旧界面的关闭事件清掉。
+        ViewSession.register(player,
+            ViewSession.create(targetLocation, viewInv)
+                .withCanceller(refresh(plugin, player, targetLocation, viewInv, refreshTicks)));
+    }
+
+    /**
+     * 启动定时刷新并返回取消器。刷新间隔为 0 时返回空实现，
+     * 但会话仍然注册——关闭界面、退出游戏、插件卸载时能统一清理。
+     */
+    private static Runnable refresh(JavaPlugin plugin, Player player,
+            Location targetLocation, Inventory viewInv, int refreshTicks) {
         if (refreshTicks <= 0) {
-            return;
+            return () -> {
+            };
         }
-        ViewSession session = ViewSession.create(targetLocation, viewInv);
         AtomicReference<BukkitTask> ref = new AtomicReference<>();
         ref.set(Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             ViewSession current = ViewSession.get(player.getUniqueId());
@@ -62,7 +72,7 @@ public final class LegacyRefresher {
                 cancelQuietly(self);
             }
         }, refreshTicks, refreshTicks));
-        ViewSession.register(player, session.withCanceller(() -> cancelQuietly(ref.get())));
+        return () -> cancelQuietly(ref.get());
     }
 
     /** 静默取消任务，null 安全，卸载期失败可忽略。 */
@@ -84,8 +94,19 @@ public final class LegacyRefresher {
             boolean enderChest, boolean auditEnabled, int refreshTicks) {
         PlayerViews.Snapshot snapshot = PlayerViews.snapshot(target, enderChest);
         Inventory viewInv = PlayerViews.openSnapshot(plugin, viewer, snapshot, auditEnabled);
+
+        ViewSession.register(viewer,
+            ViewSession.createForPlayer(viewInv, target.getUniqueId())
+                .withCanceller(refreshPlayer(plugin, viewer, target, enderChest,
+                    viewInv, refreshTicks)));
+    }
+
+    /** 玩家库存的定时刷新；间隔为 0 时返回空取消器，会话照常注册。 */
+    private static Runnable refreshPlayer(JavaPlugin plugin, Player viewer, Player target,
+            boolean enderChest, Inventory viewInv, int refreshTicks) {
         if (refreshTicks <= 0) {
-            return;
+            return () -> {
+            };
         }
         AtomicReference<BukkitTask> ref = new AtomicReference<>();
         ref.set(Bukkit.getScheduler().runTaskTimer(plugin, () -> {
@@ -117,8 +138,6 @@ public final class LegacyRefresher {
                 cancelQuietly(self);
             }
         }, refreshTicks, refreshTicks));
-        ViewSession.register(viewer,
-            ViewSession.createForPlayer(viewInv, target.getUniqueId())
-                .withCanceller(() -> cancelQuietly(ref.get())));
+        return () -> cancelQuietly(ref.get());
     }
 }

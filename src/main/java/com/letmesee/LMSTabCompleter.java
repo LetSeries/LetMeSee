@@ -75,7 +75,7 @@ public class LMSTabCompleter implements TabCompleter {
 
         // /lms inv|ec <玩家>：补在线玩家名
         if (args.length == 2 && canPlayerView
-            && (args[0].equalsIgnoreCase("inv") || args[0].equalsIgnoreCase("ec"))) {
+            && CommandRouter.isPlayerViewKeyword(args[0])) {
             String prefix = args[1].toLowerCase(Locale.ROOT);
             List<String> result = new ArrayList<>();
             for (Player online : Bukkit.getOnlinePlayers()) {

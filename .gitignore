@@ -1,6 +1,8 @@
 .gradle/
 build/
 !build/libs/*.jar
+# 本地构建工具链（Gradle 发行版与缓存），不入库
+.build-tools/
 # Wrapper jar is not tracked; CI installs Gradle 8.10 itself.
 gradle/wrapper/*.jar
 *.iml

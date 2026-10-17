@@ -46,13 +46,8 @@ public final class PlayerViews {
     public static Inventory openSnapshot(JavaPlugin plugin, Player viewer, Snapshot snapshot,
             boolean auditEnabled) {
         String ownerName = snapshot.ownerName();
-        String titleName = ContainerSnapshots.truncate(
-            ownerName + " 的" + snapshot.label(), 32);
-        Inventory viewInv = snapshot.type() == InventoryType.CHEST
-            ? Bukkit.createInventory(new ReadOnlyHolder(), snapshot.size(),
-                "§7[只读] " + titleName)
-            : Bukkit.createInventory(new ReadOnlyHolder(), snapshot.type(),
-                "§7[只读] " + titleName);
+        Inventory viewInv = ReadOnlyViews.create(snapshot.type(), snapshot.size(),
+            ownerName + " 的" + snapshot.label());
         viewInv.setContents(snapshot.contents());
 
         if (auditEnabled) {

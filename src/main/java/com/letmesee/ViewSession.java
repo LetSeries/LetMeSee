@@ -131,6 +131,10 @@ public record ViewSession(Location location, Inventory view, Runnable canceller,
         if (get(playerId) != session) {
             return false;
         }
+        // 内容没有变化就不重写、不重发库存包：减少无谓的客户端同步与闪烁
+        if (ContainerSnapshots.sameContents(session.view().getContents(), contents)) {
+            return true;
+        }
         session.view().setContents(contents);
         try {
             player.updateInventory();

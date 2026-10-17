@@ -26,17 +26,44 @@ public final class ServerCompat {
     }
 
     private static boolean detectFolia() {
+        // 关键：不能只看 getRegionScheduler/getScheduler 是否存在——这两个方法在
+        // paper-api 的编译类库里同样存在，Paper 上会被误判为 Folia，进而走到
+        // 并未真正区域化的调度器上。以 Folia 独有的区域化服务端主类为准。
+        if (!isFoliaServer()) {
+            return false;
+        }
         try {
             Bukkit.class.getMethod("getRegionScheduler");
             Player.class.getMethod("getScheduler");
-            Class.forName("net.kyori.adventure.text.Component");
+            Class.forName("net.kyori.adventure.text.Component", false,
+                ServerCompat.class.getClassLoader());
             // 确认隔离层本身可加载（方法签名污染会在此处暴露）
-            Class.forName("com.letmesee.FoliaCompat");
+            Class.forName("com.letmesee.FoliaCompat", false,
+                ServerCompat.class.getClassLoader());
             return true;
         } catch (ReflectiveOperationException | LinkageError e) {
             // 方法缺失、类缺失、NoClassDefFoundError /
             // ExceptionInInitializerError 等：隔离层不可用，降级为同步模式
             return false;
+        }
+    }
+
+    /**
+     * 是否为真正的 Folia 服务端。{@code io.papermc.paper.threadedregions.RegionizedServer}
+     * 只存在于 Folia/ShreddedPaper 等服务端本体，Paper/Spigot 上不存在。
+     * 极少数裁剪环境若不可见，退回品牌名判断。
+     */
+    private static boolean isFoliaServer() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer", false,
+                ServerCompat.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError e) {
+            try {
+                return "folia".equalsIgnoreCase(Bukkit.getServer().getName());
+            } catch (Throwable ignored) {
+                return false;
+            }
         }
     }
 
