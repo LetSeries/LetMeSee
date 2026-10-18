@@ -25,6 +25,21 @@ public final class ServerCompat {
         return FOLIA;
     }
 
+    /**
+     * Folia 卸载入口：经反射进入隔离层，避免 Spigot 加载 {@code FoliaCompat}。
+     * 反射失败时退化为只清理会话（不跨线程触碰玩家）。
+     */
+    public static void closeFoliaSessions(JavaPlugin plugin) {
+        try {
+            Method method = Class.forName("com.letmesee.FoliaCompat", false,
+                ServerCompat.class.getClassLoader()).getMethod("closeAll", JavaPlugin.class);
+            method.invoke(null, plugin);
+        } catch (ReflectiveOperationException | LinkageError e) {
+            plugin.getLogger().warning("[LetMeSee] Folia 会话清理入口失败，仅清理会话: " + e);
+            ViewSession.closeAll();
+        }
+    }
+
     private static boolean detectFolia() {
         // 关键：不能只看 getRegionScheduler/getScheduler 是否存在——这两个方法在
         // paper-api 的编译类库里同样存在，Paper 上会被误判为 Folia，进而走到

@@ -35,12 +35,13 @@ public final class LegacyRefresher {
             result.fullName());
         viewInv.setContents(result.contents());
 
-        ContainerSnapshots.audit(plugin, player, targetLocation, result.blockType(),
-            result.fullName(), auditEnabled, auditFileEnabled);
-
         player.openInventory(viewInv);
         player.sendMessage("§a已打开 " + containerName + " 的只读视图 §7"
             + ContainerSnapshots.describe(targetLocation));
+
+        // 审计在界面真正打开后写入，避免把失败或被打断的打开记成一次成功查看
+        ContainerSnapshots.audit(plugin, player, targetLocation, result.blockType(),
+            result.fullName(), auditEnabled, auditFileEnabled);
 
         // 注册必须在 openInventory 之后：打开新界面会先为旧界面触发 CloseEvent，
         // 若此时新会话已入表，反而会被旧界面的关闭事件清掉。

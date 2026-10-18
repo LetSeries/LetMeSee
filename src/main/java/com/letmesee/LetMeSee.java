@@ -42,7 +42,13 @@ public class LetMeSee extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        ViewSession.closeAll();
+        // Folia 的卸载线程不是玩家实体线程：会话与任务立即清理，
+        // 界面关闭交给各玩家实体线程（best-effort），绝不在此跨线程触碰 Player。
+        if (ServerCompat.isFolia()) {
+            ServerCompat.closeFoliaSessions(this);
+        } else {
+            ViewSession.closeAllSync();
+        }
         getLogger().info("LetMeSee 已禁用");
     }
 }

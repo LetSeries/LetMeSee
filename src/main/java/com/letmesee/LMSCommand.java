@@ -109,9 +109,9 @@ public class LMSCommand implements CommandExecutor {
             origin = null;
         }
         if (origin == null
-            && (args[1].trim().startsWith("~")
-                || args[2].trim().startsWith("~")
-                || args[3].trim().startsWith("~"))) {
+            && (isRelativeCoordinate(args[1])
+                || isRelativeCoordinate(args[2])
+                || isRelativeCoordinate(args[3]))) {
             player.sendMessage("§c当前无法读取你的位置，相对坐标（~）不可用，请使用绝对坐标");
             return;
         }
@@ -163,6 +163,11 @@ public class LMSCommand implements CommandExecutor {
             case USAGE -> "§c用法: /lms <世界> <X> <Y> <Z>，或 /lms <inv|ec> <玩家>";
             case NONE -> "";
         };
+    }
+
+    /** 坐标是否为相对形式；与解析器保持一致，忽略参数首尾空白。 */
+    static boolean isRelativeCoordinate(String arg) {
+        return arg.trim().startsWith("~");
     }
 
     /**

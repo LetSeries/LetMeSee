@@ -42,6 +42,8 @@ public final class PlayerViews {
     /**
      * 以快照打开只读视图并记审计。必须在查看者（viewer）的玩家线程执行。
      * 刷新会话由调用方按各自调度方式注册，本方法只负责首次打开。
+     *
+     * <p>审计在界面真正打开之后才写入，避免把失败或被打断的打开记成一次成功查看。</p>
      */
     public static Inventory openSnapshot(JavaPlugin plugin, Player viewer, Snapshot snapshot,
             boolean auditEnabled, boolean auditFileEnabled) {
@@ -50,6 +52,9 @@ public final class PlayerViews {
             ownerName + " 的" + snapshot.label());
         viewInv.setContents(snapshot.contents());
 
+        viewer.openInventory(viewInv);
+        viewer.sendMessage("§a已打开 " + ownerName + " 的" + snapshot.label() + "只读视图");
+
         if (auditEnabled || auditFileEnabled) {
             Player owner = Bukkit.getPlayer(snapshot.ownerId());
             String where = owner == null ? "?" : describeTarget(owner);
@@ -57,9 +62,6 @@ public final class PlayerViews {
                 + ") 查看了玩家 " + where + "(" + snapshot.ownerId() + ") 的" + snapshot.label();
             AuditLog.write(plugin, message, auditEnabled, auditFileEnabled);
         }
-
-        viewer.openInventory(viewInv);
-        viewer.sendMessage("§a已打开 " + ownerName + " 的" + snapshot.label() + "只读视图");
         return viewInv;
     }
 

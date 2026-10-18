@@ -48,4 +48,16 @@ class CoordinateTest {
         assertThrows(NumberFormatException.class, () -> LMSCommand.parseCoordinate("~1", 30_000_000));
         assertThrows(NumberFormatException.class, () -> LMSCommand.parseCoordinate("~-1", -30_000_000));
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"~", "~1", " ~1", "~1 ", "  ~-2  "})
+    void relativeDetectionMatchesTrimmedParsing(String arg) {
+        org.junit.jupiter.api.Assertions.assertTrue(LMSCommand.isRelativeCoordinate(arg));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1", " -2 ", "0"})
+    void absoluteDetectionAllowsWhitespace(String arg) {
+        org.junit.jupiter.api.Assertions.assertFalse(LMSCommand.isRelativeCoordinate(arg));
+    }
 }

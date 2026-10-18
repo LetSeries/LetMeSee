@@ -21,6 +21,19 @@ if ($Clean -and (Test-Path $BuildDir)) {
     New-Item -ItemType Directory -Path $_ -Force | Out-Null
 }
 
+function Test-JarFile {
+    param($Path)
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        try {
+            $header = New-Object byte[] 2
+            if ($stream.Read($header, 0, 2) -ne 2) { return $false }
+            # ZIP/JAR 魔数 "PK"
+            return ($header[0] -eq 0x50 -and $header[1] -eq 0x4B)
+        } finally { $stream.Dispose() }
+    } catch { return $false }
+}
+
 function Download-Jar {
     param($GroupId, $ArtifactId, $Version, $DirVersion)
     if (-not $DirVersion) { $DirVersion = $Version }
@@ -40,6 +53,11 @@ function Download-Jar {
             Write-Host "  Downloading $jarName ..."
             $wc = New-Object System.Net.WebClient
             $wc.DownloadFile($url, $jarPath)
+            if (-not (Test-JarFile $jarPath)) {
+                Remove-Item -LiteralPath $jarPath -Force
+                Write-Host "    (not a valid JAR from $url)"
+                continue
+            }
             return $jarPath
         } catch { Write-Host "    (failed from $url)" }
     }
@@ -88,13 +106,22 @@ if ($LASTEXITCODE -ne 0) { Write-Host "Compilation failed!" -ForegroundColor Red
 Write-Host "Compilation successful!" -ForegroundColor Green
 
 Write-Host "=== Packaging ==="
-$pluginYml = [System.IO.File]::ReadAllText((Join-Path $ProjectRoot "src\main\resources\plugin.yml"))
+$ResourcesDir = Join-Path $ProjectRoot "src\main\resources"
+Copy-Item -Path (Join-Path $ResourcesDir "*") -Destination $ClassesDir -Recurse -Force
+
+$pluginYml = [System.IO.File]::ReadAllText((Join-Path $ResourcesDir "plugin.yml"))
 $pluginYml = $pluginYml.Replace('${version}', $Version)
 $utf8 = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText((Join-Path $ClassesDir "plugin.yml"), $pluginYml, $utf8)
 Push-Location $ClassesDir
 try {
     jar -cf $TargetJar *
+    $jarEntries = & jar -tf $TargetJar
+    foreach ($requiredEntry in @("plugin.yml", "config.yml")) {
+        if ($jarEntries -notcontains $requiredEntry) {
+            throw "Packaged JAR is missing required resource: $requiredEntry"
+        }
+    }
     Write-Host "Plugin JAR created: $TargetJar" -ForegroundColor Green
     Write-Host "Size: $((Get-Item $TargetJar).Length / 1KB) KB"
 } finally { Pop-Location }

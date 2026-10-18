@@ -11,6 +11,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 
@@ -26,6 +28,36 @@ import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 public final class FoliaCompat {
 
     private FoliaCompat() {
+    }
+
+    /**
+     * Folia 卸载入口：立即清理会话与定时任务，再尽力把「关闭只读界面」
+     * 投递到各查看者的实体线程。
+     *
+     * <p>插件禁用后提交的实体任务可能被调度器直接拒绝（走 retired 回调），
+     * 因此这里只做 best-effort：绝不从卸载线程直接触碰 {@code Player} API，
+     * 投递失败时界面会随玩家连接断开关闭。</p>
+     */
+    public static void closeAll(JavaPlugin plugin) {
+        List<UUID> viewers = ViewSession.viewerIds();
+        ViewSession.closeAll();
+        for (UUID viewerId : viewers) {
+            Player player = Bukkit.getPlayer(viewerId);
+            if (player == null) {
+                continue;
+            }
+            try {
+                player.getScheduler().run(plugin, task -> {
+                    if (player.isOnline()
+                        && player.getOpenInventory().getTopInventory().getHolder()
+                            instanceof ReadOnlyHolder) {
+                        player.closeInventory();
+                    }
+                }, null);
+            } catch (Exception ignored) {
+                // 插件已禁用或实体已退休：调度器拒绝投递，界面随连接断开关闭
+            }
+        }
     }
 
     /**
@@ -83,13 +115,15 @@ public final class FoliaCompat {
         holder.attach(viewInv);
         viewInv.setContents(result.contents());
 
-        ContainerSnapshots.audit(plugin, player, targetLocation, result.blockType(),
-            result.fullName(), auditEnabled, auditFileEnabled);
-
         String plainName = shownName;
         String where = ContainerSnapshots.describe(targetLocation);
+        String blockType = result.blockType();
+        String fullName = result.fullName();
         runOnPlayer(plugin, player, () -> {
             opener.open(viewInv, plainName, where);
+            // 审计在界面真正打开后写入，避免把失败或被打断的打开记成一次成功查看
+            ContainerSnapshots.audit(plugin, player, targetLocation, blockType,
+                fullName, auditEnabled, auditFileEnabled);
             ViewSession session = ViewSession.create(targetLocation, viewInv);
             if (refreshTicks > 0) {
                 session = session.withCanceller(
@@ -185,7 +219,8 @@ public final class FoliaCompat {
                 }
                 ViewSession.register(viewer, session);
             });
-        }, () -> viewer.sendMessage("§c目标玩家不在可访问区域"));
+        }, () -> runOnPlayer(plugin, viewer,
+            () -> viewer.sendMessage("§c目标玩家已离线或不在可访问区域，无法读取库存")));
     }
 
     /**

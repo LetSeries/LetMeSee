@@ -6,6 +6,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,18 +74,39 @@ public record ViewSession(Location location, Inventory view, Runnable canceller,
         }
     }
 
-    /** 插件卸载时关闭全部会话：取消定时任务并关闭仍打开的界面。 */
+    /**
+     * 清除全部会话并取消定时任务，不触碰任何玩家实体。
+     * Folia 的卸载线程不是玩家实体线程，界面关闭由 {@code FoliaCompat} 投递。
+     */
     public static void closeAll() {
         for (UUID playerId : new ArrayList<>(SESSIONS.keySet())) {
             close(playerId);
+        }
+    }
+
+    /** 当前持有会话的玩家 UUID 快照（卸载期按玩家清理用）。 */
+    public static List<UUID> viewerIds() {
+        return new ArrayList<>(SESSIONS.keySet());
+    }
+
+    /**
+     * 同步服务端（Paper/Spigot）卸载时：清理会话并关闭仍打开的只读界面。
+     * 只在主线程调用，与其它 Bukkit 操作同一线程。
+     */
+    public static void closeAllSync() {
+        for (UUID playerId : new ArrayList<>(SESSIONS.keySet())) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null && player.isOnline()) {
                 try {
-                    player.closeInventory();
+                    if (player.getOpenInventory().getTopInventory()
+                        .getHolder() instanceof ReadOnlyHolder) {
+                        player.closeInventory();
+                    }
                 } catch (Exception ignored) {
                     // 卸载期关闭界面失败可忽略
                 }
             }
+            close(playerId);
         }
     }
 
