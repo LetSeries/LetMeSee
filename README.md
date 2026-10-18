@@ -37,7 +37,10 @@
 | `audit-file` | false | 是否同时追加写入插件目录下的 `audit.log` |
 | `refresh-interval-seconds` | 5 | 只读视图自动刷新间隔（秒），0 关闭，范围 0~60，非法值回退 5 |
 
-修改后可用 `/lms reload` 即时生效，无需重启。
+修改后可用 `/lms reload` 即时生效，无需重启。注意生效范围：
+`container-view`、`player-view`、`max-target-distance`、审计开关立即生效；
+`refresh-interval-seconds` 只影响**之后新打开**的视图，已经在看的视图仍按打开时的间隔刷新，
+重新打开一次即可应用新间隔。
 
 ## 权限
 
@@ -159,6 +162,7 @@ src/main/java/com/letmesee/
 ├── LetMeSee.java          # 插件入口：注册命令、监听器，启动时检测运行模式并回显配置
 ├── LMSCommand.java        # /lms 命令：参数解析，Folia/Spigot 双路径分流
 ├── CommandRouter.java     # 子命令路由与权限判定（纯函数，可单测）
+├── PlayerNameResolver.java# 玩家名前缀解析（纯函数，可单测：歧义时拒绝打开）
 ├── PlayerViews.java       # 玩家背包/末影箱快照与只读打开（中立层）
 ├── LegacyRefresher.java   # 同步路径（Paper/Spigot）：打开视图 + 定时刷新
 ├── FoliaCompat.java       # Folia 隔离层（区域线程读取，玩家线程打开）
@@ -180,6 +184,14 @@ src/main/java/com/letmesee/
 - 绕过地皮/领地保护查看公共设施
 
 ## 更新记录
+
+### 1.2.3
+
+- 优化：玩家名前缀解析抽成纯函数 `PlayerNameResolver` 并补回归测试（歧义、空输入、大小写）
+- 修复：`/lms inv ""` 这类空输入不再退化为「匹配到所有人都算命中」
+- 构建：`gradle build` 现在会校验产物必须包含 `plugin.yml` 与 `config.yml`，缺资源直接构建失败
+- 发布：Release 版本号改为从构建出的 jar 中读取，不再依赖 `build.gradle.kts` 的书写格式
+- 文档：明确 `/lms reload` 的生效范围（刷新间隔只对新打开的视图生效）
 
 ### 1.2.2
 

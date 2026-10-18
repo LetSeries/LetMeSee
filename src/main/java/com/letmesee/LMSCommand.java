@@ -12,7 +12,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public class LMSCommand implements CommandExecutor {
 
@@ -210,35 +209,30 @@ public class LMSCommand implements CommandExecutor {
      * Folia 下在目标玩家线程快照，其余服务端同步直读。
      */
     private void openPlayerView(Player viewer, String targetName, boolean enderChest) {
-        // 1) 精确匹配（大小写敏感）；2) 唯一前缀匹配（忽略大小写）；
-        // 多个候选时拒绝打开并列出，防止看错人
+        // 1) 精确匹配；2) 唯一前缀匹配（忽略大小写）；多个候选时拒绝打开并列出，防止看错人
         Player target = Bukkit.getPlayerExact(targetName);
         if (target == null) {
-            String lowerPrefix = targetName.toLowerCase(Locale.ROOT);
-            List<Player> candidates = new ArrayList<>();
+            List<String> onlineNames = new ArrayList<>();
             for (Player online : Bukkit.getOnlinePlayers()) {
-                if (online.getName().toLowerCase(Locale.ROOT).startsWith(lowerPrefix)) {
-                    candidates.add(online);
+                onlineNames.add(online.getName());
+            }
+            PlayerNameResolver.Resolution resolution =
+                PlayerNameResolver.resolvePrefix(onlineNames, targetName);
+            switch (resolution.status()) {
+                case NO_MATCH -> {
+                    viewer.sendMessage("§c目标玩家不在线: " + targetName);
+                    return;
                 }
-            }
-            if (candidates.isEmpty()) {
-                viewer.sendMessage("§c目标玩家不在线: " + targetName);
-                return;
-            }
-            if (candidates.size() > 1) {
-                StringBuilder names = new StringBuilder();
-                for (Player candidate : candidates) {
-                    if (names.length() > 0) {
-                        names.append("、");
-                    }
-                    names.append(candidate.getName());
+                case AMBIGUOUS -> {
+                    viewer.sendMessage("§c匹配到多个玩家，请补全全名: "
+                        + String.join("、", resolution.candidates()));
+                    return;
                 }
-                viewer.sendMessage("§c匹配到多个玩家，请补全全名: " + names);
-                return;
+                case MATCHED -> target = Bukkit.getPlayerExact(resolution.name());
             }
-            target = candidates.get(0);
         }
-        if (!target.isOnline()) {
+        // 解析出的名字也可能在两次查询之间下线，因此这里必须再判空
+        if (target == null || !target.isOnline()) {
             viewer.sendMessage("§c目标玩家不在线: " + targetName);
             return;
         }
