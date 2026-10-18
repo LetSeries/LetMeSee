@@ -36,9 +36,14 @@ public final class LMSConfig {
         return value;
     }
 
-    /** 是否记录审计日志。 */
+    /** 是否记录审计日志到控制台。 */
     public static boolean auditEnabled(Configuration config) {
         return config.getBoolean("audit-log", true);
+    }
+
+    /** 是否将审计日志追加写入插件目录下的 audit.log。 */
+    public static boolean auditFileEnabled(Configuration config) {
+        return config.getBoolean("audit-file", false);
     }
 
     /**

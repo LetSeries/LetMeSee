@@ -44,17 +44,18 @@ public final class PlayerViews {
      * 刷新会话由调用方按各自调度方式注册，本方法只负责首次打开。
      */
     public static Inventory openSnapshot(JavaPlugin plugin, Player viewer, Snapshot snapshot,
-            boolean auditEnabled) {
+            boolean auditEnabled, boolean auditFileEnabled) {
         String ownerName = snapshot.ownerName();
         Inventory viewInv = ReadOnlyViews.create(snapshot.type(), snapshot.size(),
             ownerName + " 的" + snapshot.label());
         viewInv.setContents(snapshot.contents());
 
-        if (auditEnabled) {
+        if (auditEnabled || auditFileEnabled) {
             Player owner = Bukkit.getPlayer(snapshot.ownerId());
             String where = owner == null ? "?" : describeTarget(owner);
-            plugin.getLogger().info("[审计] " + viewer.getName() + "(" + viewer.getUniqueId()
-                + ") 查看了玩家 " + where + "(" + snapshot.ownerId() + ") 的" + snapshot.label());
+            String message = "[审计] " + viewer.getName() + "(" + viewer.getUniqueId()
+                + ") 查看了玩家 " + where + "(" + snapshot.ownerId() + ") 的" + snapshot.label();
+            AuditLog.write(plugin, message, auditEnabled, auditFileEnabled);
         }
 
         viewer.openInventory(viewInv);

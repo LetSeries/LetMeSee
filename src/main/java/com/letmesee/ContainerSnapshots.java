@@ -146,12 +146,14 @@ public final class ContainerSnapshots {
     }
 
     public static void audit(JavaPlugin plugin, Player player, Location location,
-            String blockType, String containerName, boolean enabled) {
-        if (!enabled) {
+            String blockType, String containerName, boolean consoleEnabled,
+            boolean fileEnabled) {
+        if (!consoleEnabled && !fileEnabled) {
             return;
         }
-        plugin.getLogger().info("[审计] " + player.getName() + "(" + player.getUniqueId() + ") 查看了 "
-            + describe(location) + " " + blockType + "[" + containerName + "]");
+        String message = "[审计] " + player.getName() + "(" + player.getUniqueId()
+            + ") 查看了 " + describe(location) + " " + blockType + "[" + containerName + "]";
+        AuditLog.write(plugin, message, consoleEnabled, fileEnabled);
     }
 
     /** 只读 Location 坐标，不触碰方块，任意线程可调用。 */

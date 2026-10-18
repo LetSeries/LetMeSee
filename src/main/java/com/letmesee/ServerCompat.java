@@ -74,10 +74,12 @@ public final class ServerCompat {
      * 反射失败时给玩家友好提示，不抛异常。</p>
      */
     public static void openFoliaContainer(JavaPlugin plugin, Player player,
-            Location targetLocation, boolean auditEnabled, int refreshTicks) {
+            Location targetLocation, boolean auditEnabled, boolean auditFileEnabled,
+            int refreshTicks) {
         try {
             Method method = FoliaMethods.openContainer();
-            method.invoke(null, plugin, player, targetLocation, auditEnabled, refreshTicks,
+            method.invoke(null, plugin, player, targetLocation, auditEnabled,
+                auditFileEnabled, refreshTicks,
                 (FoliaOpener) (viewInv, plainName, where) -> {
                     player.openInventory(viewInv);
                     player.sendMessage("§a已打开 " + plainName + " 的只读视图 §7" + where);
@@ -105,7 +107,8 @@ public final class ServerCompat {
                     if (cached == null) {
                         cached = Class.forName("com.letmesee.FoliaCompat").getMethod(
                             "openContainer", JavaPlugin.class, Player.class,
-                            Location.class, boolean.class, int.class, FoliaOpener.class);
+                            Location.class, boolean.class, boolean.class, int.class,
+                            FoliaOpener.class);
                         openContainer = cached;
                     }
                 }
@@ -122,7 +125,7 @@ public final class ServerCompat {
                         cached = Class.forName("com.letmesee.FoliaCompat").getMethod(
                             "openPlayerView", JavaPlugin.class, Player.class,
                             java.util.UUID.class, boolean.class, boolean.class,
-                            int.class, FoliaPlayerOpener.class);
+                            boolean.class, int.class, FoliaPlayerOpener.class);
                         openPlayerView = cached;
                     }
                 }
@@ -143,11 +146,11 @@ public final class ServerCompat {
      */
     public static void openFoliaPlayerView(JavaPlugin plugin, Player viewer,
             java.util.UUID targetId, boolean enderChest, boolean auditEnabled,
-            int refreshTicks) {
+            boolean auditFileEnabled, int refreshTicks) {
         try {
             Method method = FoliaMethods.openPlayerView();
             method.invoke(null, plugin, viewer, targetId, enderChest, auditEnabled,
-                refreshTicks, (FoliaPlayerOpener) (viewInv, snapshot) -> {
+                auditFileEnabled, refreshTicks, (FoliaPlayerOpener) (viewInv, snapshot) -> {
                     viewer.openInventory(viewInv);
                 });
         } catch (ReflectiveOperationException e) {

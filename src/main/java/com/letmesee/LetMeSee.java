@@ -26,8 +26,9 @@ public class LetMeSee extends JavaPlugin {
         getLogger().info("配置：容器查看 " + onOff(LMSConfig.containerViewEnabled(getConfig()))
             + "，玩家库存 " + onOff(LMSConfig.playerViewEnabled(getConfig()))
             + "，最大距离 " + LMSConfig.maxTargetDistance(getConfig()) + " 格"
-            + "，刷新 " + refreshText() + "，审计日志 "
-            + onOff(LMSConfig.auditEnabled(getConfig())));
+            + "，刷新 " + refreshText() + "，审计控制台 "
+            + onOff(LMSConfig.auditEnabled(getConfig())) + " / 文件 "
+            + onOff(LMSConfig.auditFileEnabled(getConfig())));
     }
 
     private String refreshText() {

@@ -34,6 +34,7 @@
 | `player-view` | true | 是否启用玩家库存查看（`/lms inv\|ec`） |
 | `max-target-distance` | 10 | `/lms` 准星模式最大距离，范围 1~64，非法值自动回退 |
 | `audit-log` | true | 是否在控制台记录审计日志 |
+| `audit-file` | false | 是否同时追加写入插件目录下的 `audit.log` |
 | `refresh-interval-seconds` | 5 | 只读视图自动刷新间隔（秒），0 关闭，范围 0~60，非法值回退 5 |
 
 修改后可用 `/lms reload` 即时生效，无需重启。
@@ -54,8 +55,9 @@
 - 本插件设计目标就是绕过领地 / 商店保护查看容器，**授权限即授偷看权**：
   `letmesee.use` 可看全服任意容器，`letmesee.player` 可看任意在线玩家背包与末影箱。
   请只授予可信管理员，默认 op 即可，不要下放给普通玩家组。
-- 审计日志记录查看者 UUID、被查看者 UUID、坐标与容器名，输出到 server log。
-  需要留痕请保持 `audit-log: true`；log 文件的保留与清理服主自行负责。
+- 审计日志记录查看者 UUID、被查看者 UUID、坐标与容器名。`audit-log: true`
+  输出到控制台/server log；`audit-file: true` 会额外追加到插件目录的 `audit.log`
+  （UTC 时间戳、单行记录）。审计文件只追加，不自动轮转；保留与清理由服主负责。
 - 玩家名支持前缀匹配，多个候选时插件会拒绝打开并列出全名，防止看错人。
 
 ## 支持容器类型
@@ -176,6 +178,11 @@ src/main/java/com/letmesee/
 - 绕过地皮/领地保护查看公共设施
 
 ## 更新记录
+
+### 1.2.1
+
+- 新增可选审计文件：`audit-file: true` 后追加到插件目录 `audit.log`，带 UTC 时间戳；控制台与文件开关互相独立
+- 审计记录强制单行化，避免恶意名称把伪造记录注入日志
 
 ### 1.2.0
 

@@ -64,12 +64,14 @@ public class LMSCommand implements CommandExecutor {
         plugin.reloadConfig();
         int maxDistance = LMSConfig.maxTargetDistance(plugin.getConfig());
         boolean audit = LMSConfig.auditEnabled(plugin.getConfig());
+        boolean auditFile = LMSConfig.auditFileEnabled(plugin.getConfig());
         int refreshSeconds = LMSConfig.refreshIntervalSeconds(plugin.getConfig());
         boolean containerView = LMSConfig.containerViewEnabled(plugin.getConfig());
         boolean playerView = LMSConfig.playerViewEnabled(plugin.getConfig());
         sender.sendMessage("§a配置已重载：容器查看 " + onOff(containerView)
             + "，玩家库存查看 " + onOff(playerView)
-            + "，最大距离 " + maxDistance + " 格，审计日志 " + onOff(audit)
+            + "，最大距离 " + maxDistance + " 格，审计日志控制台 " + onOff(audit)
+            + " / 文件 " + onOff(auditFile)
             + "，刷新间隔 "
             + (refreshSeconds == 0 ? "关闭" : refreshSeconds + " 秒"));
     }
@@ -236,15 +238,16 @@ public class LMSCommand implements CommandExecutor {
             return;
         }
         boolean auditEnabled = LMSConfig.auditEnabled(plugin.getConfig());
+        boolean auditFileEnabled = LMSConfig.auditFileEnabled(plugin.getConfig());
         int refreshTicks = LMSConfig.refreshIntervalTicks(plugin.getConfig());
         if (ServerCompat.isFolia()) {
             // 此处绝不能直接引用 FoliaCompat，否则 Spigot 上类加载即崩。
             ServerCompat.openFoliaPlayerView(plugin, viewer, target.getUniqueId(),
-                enderChest, auditEnabled, refreshTicks);
+                enderChest, auditEnabled, auditFileEnabled, refreshTicks);
             return;
         }
         LegacyRefresher.openPlayerView(plugin, viewer, target, enderChest,
-            auditEnabled, refreshTicks);
+            auditEnabled, auditFileEnabled, refreshTicks);
     }
 
     private void openContainer(Player player, Location targetLocation) {
@@ -252,13 +255,15 @@ public class LMSCommand implements CommandExecutor {
         // 一切读取都在区域线程（FoliaCompat）或同线程（Spigot legacy）内完成。
         // 配置在调用线程预读，区域线程/定时任务不再触碰 config。
         boolean auditEnabled = LMSConfig.auditEnabled(plugin.getConfig());
+        boolean auditFileEnabled = LMSConfig.auditFileEnabled(plugin.getConfig());
         int refreshTicks = LMSConfig.refreshIntervalTicks(plugin.getConfig());
         if (ServerCompat.isFolia()) {
             // 此处绝不能直接引用 FoliaCompat，否则 Spigot 上类加载即崩。
             ServerCompat.openFoliaContainer(plugin, player, targetLocation,
-                auditEnabled, refreshTicks);
+                auditEnabled, auditFileEnabled, refreshTicks);
             return;
         }
-        LegacyRefresher.open(plugin, player, targetLocation, auditEnabled, refreshTicks);
+        LegacyRefresher.open(plugin, player, targetLocation,
+            auditEnabled, auditFileEnabled, refreshTicks);
     }
 }

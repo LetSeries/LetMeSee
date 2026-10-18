@@ -23,7 +23,7 @@ public final class LegacyRefresher {
      * 读取失败时直接提示玩家，不打开界面。
      */
     public static void open(JavaPlugin plugin, Player player, Location targetLocation,
-            boolean auditEnabled, int refreshTicks) {
+            boolean auditEnabled, boolean auditFileEnabled, int refreshTicks) {
         ContainerSnapshots.ReadResult result = ContainerSnapshots.read(targetLocation);
         if (result.status() != ContainerSnapshots.ReadStatus.OK) {
             player.sendMessage(ContainerSnapshots.messageFor(result.status()));
@@ -36,7 +36,7 @@ public final class LegacyRefresher {
         viewInv.setContents(result.contents());
 
         ContainerSnapshots.audit(plugin, player, targetLocation, result.blockType(),
-            result.fullName(), auditEnabled);
+            result.fullName(), auditEnabled, auditFileEnabled);
 
         player.openInventory(viewInv);
         player.sendMessage("§a已打开 " + containerName + " 的只读视图 §7"
@@ -91,9 +91,11 @@ public final class LegacyRefresher {
      * 目标离线直接提示，不打开界面。
      */
     public static void openPlayerView(JavaPlugin plugin, Player viewer, Player target,
-            boolean enderChest, boolean auditEnabled, int refreshTicks) {
+            boolean enderChest, boolean auditEnabled, boolean auditFileEnabled,
+            int refreshTicks) {
         PlayerViews.Snapshot snapshot = PlayerViews.snapshot(target, enderChest);
-        Inventory viewInv = PlayerViews.openSnapshot(plugin, viewer, snapshot, auditEnabled);
+        Inventory viewInv = PlayerViews.openSnapshot(plugin, viewer, snapshot,
+            auditEnabled, auditFileEnabled);
 
         ViewSession.register(viewer,
             ViewSession.createForPlayer(viewInv, target.getUniqueId())

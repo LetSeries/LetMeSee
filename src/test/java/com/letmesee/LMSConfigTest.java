@@ -15,6 +15,7 @@ class LMSConfigTest {
 
         assertEquals(LMSConfig.DEFAULT_MAX_DISTANCE, LMSConfig.maxTargetDistance(config));
         assertTrue(LMSConfig.auditEnabled(config));
+        assertFalse(LMSConfig.auditFileEnabled(config));
         assertTrue(LMSConfig.containerViewEnabled(config));
         assertTrue(LMSConfig.playerViewEnabled(config));
     }
@@ -53,6 +54,16 @@ class LMSConfigTest {
         MemoryConfiguration config = new MemoryConfiguration();
         config.set("audit-log", false);
 
+        assertFalse(LMSConfig.auditEnabled(config));
+    }
+
+    @Test
+    void auditFileCanBeEnabledIndependently() {
+        MemoryConfiguration config = new MemoryConfiguration();
+        config.set("audit-log", false);
+        config.set("audit-file", true);
+
+        assertTrue(LMSConfig.auditFileEnabled(config));
         assertFalse(LMSConfig.auditEnabled(config));
     }
 

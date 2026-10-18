@@ -38,10 +38,12 @@ public final class FoliaCompat {
      * @param opener 在玩家线程打开视图的回调，收到已建好的只读视图
      */
     public static void openContainer(JavaPlugin plugin, Player player, Location targetLocation,
-            boolean auditEnabled, int refreshTicks, ServerCompat.FoliaOpener opener) {
+            boolean auditEnabled, boolean auditFileEnabled, int refreshTicks,
+            ServerCompat.FoliaOpener opener) {
         Bukkit.getRegionScheduler().run(plugin, targetLocation, task -> {
             try {
-                readAndOpen(plugin, player, targetLocation, auditEnabled, refreshTicks, opener);
+                readAndOpen(plugin, player, targetLocation, auditEnabled, auditFileEnabled,
+                    refreshTicks, opener);
             } catch (Exception e) {
                 plugin.getLogger().warning("[LetMeSee] 读取容器失败 "
                     + ContainerSnapshots.describe(targetLocation) + ": " + e);
@@ -52,7 +54,8 @@ public final class FoliaCompat {
     }
 
     private static void readAndOpen(JavaPlugin plugin, Player player, Location targetLocation,
-            boolean auditEnabled, int refreshTicks, ServerCompat.FoliaOpener opener) {
+            boolean auditEnabled, boolean auditFileEnabled, int refreshTicks,
+            ServerCompat.FoliaOpener opener) {
         ContainerSnapshots.ReadResult result = ContainerSnapshots.read(targetLocation);
         if (result.status() != ContainerSnapshots.ReadStatus.OK) {
             String message = ContainerSnapshots.messageFor(result.status());
@@ -81,7 +84,7 @@ public final class FoliaCompat {
         viewInv.setContents(result.contents());
 
         ContainerSnapshots.audit(plugin, player, targetLocation, result.blockType(),
-            result.fullName(), auditEnabled);
+            result.fullName(), auditEnabled, auditFileEnabled);
 
         String plainName = shownName;
         String where = ContainerSnapshots.describe(targetLocation);
@@ -153,7 +156,8 @@ public final class FoliaCompat {
      */
     public static void openPlayerView(JavaPlugin plugin, Player viewer,
             java.util.UUID targetId, boolean enderChest, boolean auditEnabled,
-            int refreshTicks, ServerCompat.FoliaPlayerOpener opener) {
+            boolean auditFileEnabled, int refreshTicks,
+            ServerCompat.FoliaPlayerOpener opener) {
         Player target = Bukkit.getPlayer(targetId);
         if (target == null || !target.isOnline()) {
             viewer.sendMessage("§c目标玩家不在线");
@@ -172,7 +176,7 @@ public final class FoliaCompat {
             }
             runOnPlayer(plugin, viewer, () -> {
                 Inventory viewInv = PlayerViews.openSnapshot(plugin, viewer, snapshot,
-                    auditEnabled);
+                    auditEnabled, auditFileEnabled);
                 opener.open(viewInv, snapshot);
                 ViewSession session = ViewSession.createForPlayer(viewInv, targetId);
                 if (refreshTicks > 0) {
