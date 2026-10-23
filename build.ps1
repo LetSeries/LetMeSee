@@ -80,6 +80,8 @@ function Download-Jar {
     throw "Failed to download $jarName"
 }
 
+# 手工构建产物不含 bStats（无 shade 重定位能力），统计会在运行时自动跳过；
+# 正式发布请使用 gradle build / CI 产物。
 Write-Host "=== Downloading dependencies ==="
 $jars = @()
 
@@ -87,6 +89,9 @@ $jars = @()
 $jars += Download-Jar "io.papermc.paper" "paper-api" "1.21.1-R0.1-20250328.161643-128" "1.21.1-R0.1-SNAPSHOT"
 
 # Direct compile dependencies
+# bStats 分两个 artifact：bukkit 是入口类，base 是实现类，编译期两者都要在 classpath 上
+$jars += Download-Jar "org.bstats" "bstats-bukkit" "3.2.1"
+$jars += Download-Jar "org.bstats" "bstats-base" "3.2.1"
 $jars += Download-Jar "com.mojang" "brigadier" "1.2.9"
 $jars += Download-Jar "com.google.guava" "guava" "32.1.2-jre"
 $jars += Download-Jar "com.google.code.gson" "gson" "2.10.1"

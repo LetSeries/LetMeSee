@@ -75,6 +75,22 @@
 - 每次刷新前都会复核查看者权限与功能开关，撤销授权后已打开的视图会被强制结束；
   界面打开若被其它插件取消（`InventoryOpenEvent`），不会产生审计记录。
 
+## 统计（bStats）
+
+插件接入了 [bStats](https://bstats.org) 匿名统计，用于了解插件在多少服务器上运行、
+大家用的是 Folia 还是 Paper/Spigot。收集内容只有服务器元数据
+（服务端类型/版本、在线玩家数、插件数量等），**不包含任何容器内容、玩家行为、
+坐标或 `/lms` 的使用记录**。
+
+- 插件 ID 尚未在 `MetricsSupport.PLUGIN_ID` 中填入（保持 `0`）时统计直接跳过；
+  在 [bstats.org/what-is-my-plugin-id](https://bstats.org/what-is-my-plugin-id)
+  注册后把数字填进去即启用
+- 不想上报？删除或清空服务端 `plugins/bStats/config.json` 中的 `enabled`（改为 false）
+  即可全局关闭，插件其余功能不受影响
+- 自定义图表 `server_type` 需要在 bStats 后台登记同名图表，未登记会被服务端忽略
+- `build.ps1` 手工构建的产物不含统计依赖，运行时会自动跳过统计（仅一条日志），
+  正式发布请使用 Gradle / CI 构建的 jar
+
 ## 支持容器类型
 
 - 箱子 / 陷阱箱（含双箱）
@@ -145,7 +161,11 @@
 gradle build
 ```
 
-编译产物位于 `build/libs/letmesee-<版本>.jar`。单测用 `gradle test`（JUnit 5，零服务端依赖）。
+编译产物位于 `build/libs/letmesee-<版本>.jar`（阴影 jar，内含重定位后的 bStats，
+是安装到服务器的唯一产物）。单测用 `gradle test`（JUnit 5，零服务端依赖）。
+
+Gradle 插件（shadow）的解析在 `settings.gradle.kts` 里配置为阿里云镜像优先、
+官方 Gradle Plugin Portal 兜底——Plugin Portal 在部分网络环境不可达时也能构建。
 
 ### GitHub Actions
 
@@ -181,6 +201,7 @@ src/main/java/com/letmesee/
 ├── LegacyRefresher.java   # 同步路径（Paper/Spigot）：打开视图 + 定时刷新
 ├── FoliaCompat.java       # Folia 隔离层（区域线程读取，玩家线程打开）
 ├── ServerCompat.java      # 零依赖环境检测，经反射进入 FoliaCompat
+├── MetricsSupport.java    # bStats 匿名统计接入（未配置 ID 或依赖缺失时自动跳过）
 ├── ContainerNames.java    # 方块类型到中文名的映射（任意线程可调用）
 ├── LMSConfig.java         # config.yml 视图：查看距离、审计开关、刷新间隔
 ├── ContainerSnapshots.java# 容器读取、物品克隆、内容比对、名称清洗与审计消息
@@ -199,6 +220,14 @@ src/main/java/com/letmesee/
 - 绕过地皮/领地保护查看公共设施
 
 ## 更新记录
+
+### 1.2.5
+
+- 新增 bStats 匿名统计（未配置插件 ID 时自动跳过；不收集任何查看行为数据）
+- Gradle 改用 shadow 打包（goooler 维护的 fork——原版 8.1.1 停更，内置 ASM 不支持
+  Java 21 的 class 文件）：bStats 被重定位进 `com.letmesee.libs.bstats`，
+  `gradle build` 会校验产物包含必需资源且重定位确实发生
+- 普通 jar 不再单独产出，`build/libs` 只保留最终阴影 jar
 
 ### 1.2.4
 

@@ -17,6 +17,7 @@ public class LetMeSee extends JavaPlugin {
         command.setExecutor(new LMSCommand(this));
         command.setTabCompleter(new LMSTabCompleter(this));
         getServer().getPluginManager().registerEvents(new InventoryListener(), this);
+        MetricsSupport.start(this);
 
         if (ServerCompat.isFolia()) {
             getLogger().info("LetMeSee 已启用（Folia 区域调度模式：按目标区域/实体线程读写）");
