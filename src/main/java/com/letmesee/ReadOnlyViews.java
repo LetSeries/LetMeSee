@@ -30,16 +30,16 @@ public final class ReadOnlyViews {
     }
 
     /**
-     * 生成 § 格式的只读标题。正文超长时按可见长度截断，
-     * 保证前缀不会把标题挤到客户端显示上限之外。
+     * 生成 § 格式的只读标题。正文先清洗 {@code §} 代码再按可见长度截断，
+     * 保证前缀不会被挤到客户端显示上限之外，也不会被玩家可控名称重绘。
      */
     public static String title(String body) {
-        return LEGACY_PREFIX + ContainerSnapshots.truncate(body, BODY_LIMIT);
+        return LEGACY_PREFIX + body(body);
     }
 
-    /** 按可见长度截断标题正文（供 Adventure 标题路径使用）。 */
+    /** 按可见长度截断并清洗标题正文（供 Adventure 标题路径使用）。 */
     public static String body(String raw) {
-        return ContainerSnapshots.truncate(raw, BODY_LIMIT);
+        return ContainerSnapshots.truncate(ContainerSnapshots.stripFormatting(raw), BODY_LIMIT);
     }
 
     /**

@@ -37,8 +37,14 @@
 | `audit-file` | false | 是否同时追加写入插件目录下的 `audit.log` |
 | `refresh-interval-seconds` | 5 | 只读视图自动刷新间隔（秒），0 关闭，范围 0~60，非法值回退 5 |
 
+布尔开关必须写成 `true` / `false`（可带引号）；写成 `"no"`、`1` 这类无法识别的值时，
+两个查看开关按**关闭**处理、审计按「控制台开 / 文件关」处理——宁可少开不可多开。
+`/lms reload` 的回显会显示实际生效值。
+
 修改后可用 `/lms reload` 即时生效，无需重启。注意生效范围：
-`container-view`、`player-view`、`max-target-distance`、审计开关立即生效；
+`container-view`、`player-view`、`max-target-distance`、审计开关立即生效，
+并且**已打开的视图也会随之关闭**——权限被撤销或功能被关闭后，下一次刷新（最多
+`refresh-interval-seconds` 秒）就会结束该视图并提示；
 `refresh-interval-seconds` 只影响**之后新打开**的视图，已经在看的视图仍按打开时的间隔刷新，
 重新打开一次即可应用新间隔。
 
@@ -64,6 +70,10 @@
   （UTC 时间戳、单行记录）。审计文件只追加，不自动轮转；保留与清理由服主负责，
   它是有用的运维日志，但不是防篡改的法证记录。
 - 玩家名支持前缀匹配，多个候选时插件会拒绝打开并列出全名，防止看错人。
+- 容器标题与聊天提示里的容器名会先去掉 `§` 颜色代码：改名潜影盒等玩家可控名称
+  无法借标题重绘「[只读]」标记或伪造容器身份；审计记录保留完整原名。
+- 每次刷新前都会复核查看者权限与功能开关，撤销授权后已打开的视图会被强制结束；
+  界面打开若被其它插件取消（`InventoryOpenEvent`），不会产生审计记录。
 
 ## 支持容器类型
 
@@ -108,8 +118,8 @@
    每次查看都会在控制台记一条审计日志
 4. 查看期间 `InventoryListener` 会取消全部点击和拖拽，避免拿走、放入或复制物品
 5. 刷新定时器按 `refresh-interval-seconds` 重读目标并同步到视图；内容与当前视图
-   完全一致时跳过写入与客户端同步，避免每隔几秒刷一次屏；容器消失、变尺寸、
-   被查看玩家下线时自动关闭视图并结束会话；
+   完全一致时跳过写入与客户端同步，避免每隔几秒刷一次屏；每次刷新前复核权限与开关；
+   容器消失、变尺寸、被查看玩家下线时自动关闭视图并结束会话；
    关闭界面、退出游戏、打开新视图、插件卸载都会取消定时任务，不泄漏
 
 ## 常见问题
@@ -145,15 +155,18 @@ gradle build
   （tag 格式 `v<版本>-<构建号>`，jar 作为附件上传），无需手动打 tag
 - CI 使用 GitHub Actions 提供的 Gradle 8.10，不依赖本地 Gradle Wrapper
 
-### 手动编译（无需 Gradle）
+### 手动编译（无需安装 Gradle）
 
-项目包含 `build.ps1` PowerShell 脚本，可自动下载依赖并编译：
+项目包含 `build.ps1` PowerShell 脚本，自动下载依赖并编译（Windows PowerShell 5.1+
+或跨平台 PowerShell 7 均可，classpath 分隔符按平台处理）：
 
 ```powershell
 .\build.ps1
 ```
 
-脚本版本号从 `build.gradle.kts` 读取，升版本只需改一处。
+脚本版本号与 paper-api 版本从 `build.gradle.kts` 读取（`gradle build` 会校验两处一致），
+升版本只需改一处。注意：依赖清单是脚本内手写的精简版，与 Gradle 解析的完整依赖图
+可能有出入——正式构建请以 `gradle build` / CI 为准。
 
 ## 项目结构
 
@@ -163,13 +176,15 @@ src/main/java/com/letmesee/
 ├── LMSCommand.java        # /lms 命令：参数解析，Folia/Spigot 双路径分流
 ├── CommandRouter.java     # 子命令路由与权限判定（纯函数，可单测）
 ├── PlayerNameResolver.java# 玩家名前缀解析（纯函数，可单测：歧义时拒绝打开）
+├── SessionGuard.java      # 已打开视图的持续授权检查（纯函数，可单测）
 ├── PlayerViews.java       # 玩家背包/末影箱快照与只读打开（中立层）
 ├── LegacyRefresher.java   # 同步路径（Paper/Spigot）：打开视图 + 定时刷新
 ├── FoliaCompat.java       # Folia 隔离层（区域线程读取，玩家线程打开）
 ├── ServerCompat.java      # 零依赖环境检测，经反射进入 FoliaCompat
 ├── ContainerNames.java    # 方块类型到中文名的映射（任意线程可调用）
 ├── LMSConfig.java         # config.yml 视图：查看距离、审计开关、刷新间隔
-├── ContainerSnapshots.java# 容器读取、物品克隆、内容比对与审计日志（与服务端实现无关）
+├── ContainerSnapshots.java# 容器读取、物品克隆、内容比对、名称清洗与审计消息
+├── AuditLog.java          # 审计记录格式化与落盘（控制台 / audit.log，防伪造单行）
 ├── ReadOnlyViews.java     # 只读虚拟库存创建与标题格式化（三条打开路径共用）
 ├── ViewSession.java       # 只读查看会话：注册、刷新应用、关闭清理
 ├── InventoryListener.java # 取消只读界面的点击/拖拽，关闭与退出时结束会话
@@ -184,6 +199,24 @@ src/main/java/com/letmesee/
 - 绕过地皮/领地保护查看公共设施
 
 ## 更新记录
+
+### 1.2.4
+
+- 安全：已打开的视图在每次刷新前复核权限与功能开关——撤销 `letmesee.use` /
+  `letmesee.player` 或关闭 `container-view` / `player-view` 后，视图会在下一次刷新被强制结束
+- 安全：布尔开关不再「fail open」——`container-view: "false"` 这类带引号或无法识别的
+  写法按关闭处理（审计按「控制台开 / 文件关」），不再出现「以为关了其实还开着」
+- 安全：容器名先去掉 `§` 颜色代码再进标题与聊天提示，玩家可控名称无法重绘只读标记
+- 修复：Folia 玩家库存视图重复调用 `openInventory`（多余的关闭事件与闪烁隐患）；
+  Folia 两条打开路径不再经过多余的回调转手
+- 修复：界面被其它插件取消打开（`InventoryOpenEvent` 被取消）时，不再发送成功提示、
+  不再写审计记录、不再注册会话
+- 构建：`build.ps1` 每次重建 classes（默认不再打包旧类）、依赖缓存校验魔法数、
+  classpath 分隔符按平台取（Linux/macOS 的 pwsh 可用）、与 Gradle 同样输出调试信息、
+  固定 UTF-8 编码；`gradle build` 校验 build.ps1 与 build.gradle.kts 的 paper-api 版本一致
+- 构建：Gradle 编译显式固定 UTF-8 源码编码
+- 发布：Release 版本解析兼容单双引号，产物不唯一时直接失败
+- 文档：项目结构补 `AuditLog` / `SessionGuard`，说明开关取值规则与持续授权行为
 
 ### 1.2.3
 

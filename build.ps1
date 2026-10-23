@@ -14,9 +14,15 @@ $LibsDir = Join-Path $BuildDir "libs"
 $DepsDir = Join-Path $BuildDir "deps"
 $TargetJar = Join-Path $LibsDir "letmesee-$Version.jar"
 
-if ($Clean -and (Test-Path $BuildDir)) {
-    Remove-Item -LiteralPath $BuildDir -Recurse -Force
+if ($Clean) {
+    # 只清理编译产物，保留 deps 缓存，避免 -Clean 触发整包重新下载
+    foreach ($dir in @($ClassesDir, $LibsDir)) {
+        if (Test-Path $dir) { Remove-Item -LiteralPath $dir -Recurse -Force }
+    }
 }
+# 每次都重建 classes：增量 javac 不会删除已删源文件留下的 .class，
+# 否则它们会被打进 jar，产出与 Gradle 构建不一致的旧类。
+if (Test-Path $ClassesDir) { Remove-Item -LiteralPath $ClassesDir -Recurse -Force }
 @($ClassesDir, $LibsDir, $DepsDir) | ForEach-Object {
     New-Item -ItemType Directory -Path $_ -Force | Out-Null
 }
@@ -41,7 +47,13 @@ function Download-Jar {
     $groupIdPath = $GroupId.Replace('.', '/')
     $jarName = "$ArtifactId-$Version.jar"
     $jarPath = Join-Path $DepsDir $jarName
-    if (Test-Path $jarPath) { return $jarPath }
+    # 缓存命中也校验：中断下载会留下带 "PK" 魔数的半截文件，
+    # 若不再校验就会一直拿坏包去编译
+    if (Test-Path $jarPath) {
+        if (Test-JarFile $jarPath) { return $jarPath }
+        Write-Host "  Cached $jarName is corrupt, re-downloading ..."
+        Remove-Item -LiteralPath $jarPath -Force
+    }
 
     # Try PaperMC repo first, then Maven Central
     $urls = @(
@@ -59,7 +71,11 @@ function Download-Jar {
                 continue
             }
             return $jarPath
-        } catch { Write-Host "    (failed from $url)" }
+        } catch {
+            # 半截文件必须删掉，否则下次运行会当成有效缓存
+            if (Test-Path $jarPath) { Remove-Item -LiteralPath $jarPath -Force -ErrorAction SilentlyContinue }
+            Write-Host "    (failed from $url)"
+        }
     }
     throw "Failed to download $jarName"
 }
@@ -97,11 +113,13 @@ $jars += Download-Jar "net.kyori" "examination-api" "1.3.0"
 $jars += Download-Jar "net.kyori" "examination-string" "1.3.0"
 
 Write-Host "=== Compiling ==="
-$classpath = ($jars | Select-Object -Unique) -join ";"
-$srcDir = Join-Path $ProjectRoot "src\main\java"
+# 分隔符按平台取，脚本可在 Linux/macOS 的 pwsh 下运行
+$classpath = ($jars | Select-Object -Unique) -join [IO.Path]::PathSeparator
+$srcDir = Join-Path $ProjectRoot (Join-Path "src" (Join-Path "main" "java"))
 $javaFiles = Get-ChildItem -Path $srcDir -Recurse -Filter "*.java" | ForEach-Object { $_.FullName }
 
-& javac -d $ClassesDir -cp $classpath -Xlint:-deprecation --release 21 @javaFiles 2>&1
+# -g 与 Gradle 的调试信息保持一致，-encoding 固定 UTF-8（源码含大量中文提示语）
+& javac -d $ClassesDir -cp $classpath -g -encoding UTF-8 -Xlint:-deprecation --release 21 @javaFiles 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Host "Compilation failed!" -ForegroundColor Red; exit 1 }
 Write-Host "Compilation successful!" -ForegroundColor Green
 

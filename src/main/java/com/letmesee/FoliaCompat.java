@@ -65,17 +65,15 @@ public final class FoliaCompat {
      * 并按配置注册自动刷新。
      *
      * <p>公开方法签名只含 Bukkit / JDK 类型，避免调用方加载期被 Adventure
-     * 方法签名污染；Adventure 只出现在方法体内部。</p>
-     *
-     * @param opener 在玩家线程打开视图的回调，收到已建好的只读视图
+     * 方法签名污染；Adventure 只出现在方法体内部。界面打开由本类在玩家线程
+     * 直接完成（{@link #runOnPlayer} 已保证线程归属），不再经由回调转手。</p>
      */
     public static void openContainer(JavaPlugin plugin, Player player, Location targetLocation,
-            boolean auditEnabled, boolean auditFileEnabled, int refreshTicks,
-            ServerCompat.FoliaOpener opener) {
+            boolean auditEnabled, boolean auditFileEnabled, int refreshTicks) {
         Bukkit.getRegionScheduler().run(plugin, targetLocation, task -> {
             try {
                 readAndOpen(plugin, player, targetLocation, auditEnabled, auditFileEnabled,
-                    refreshTicks, opener);
+                    refreshTicks);
             } catch (Exception e) {
                 plugin.getLogger().warning("[LetMeSee] 读取容器失败 "
                     + ContainerSnapshots.describe(targetLocation) + ": " + e);
@@ -86,8 +84,7 @@ public final class FoliaCompat {
     }
 
     private static void readAndOpen(JavaPlugin plugin, Player player, Location targetLocation,
-            boolean auditEnabled, boolean auditFileEnabled, int refreshTicks,
-            ServerCompat.FoliaOpener opener) {
+            boolean auditEnabled, boolean auditFileEnabled, int refreshTicks) {
         ContainerSnapshots.ReadResult result = ContainerSnapshots.read(targetLocation);
         if (result.status() != ContainerSnapshots.ReadStatus.OK) {
             String message = ContainerSnapshots.messageFor(result.status());
@@ -120,8 +117,13 @@ public final class FoliaCompat {
         String blockType = result.blockType();
         String fullName = result.fullName();
         runOnPlayer(plugin, player, () -> {
-            opener.open(viewInv, plainName, where);
-            // 审计在界面真正打开后写入，避免把失败或被打断的打开记成一次成功查看
+            player.openInventory(viewInv);
+            if (player.getOpenInventory().getTopInventory() != viewInv) {
+                player.sendMessage("§c只读视图未能打开（可能被其它插件拦截）");
+                return;
+            }
+            player.sendMessage("§a已打开 " + plainName + " 的只读视图 §7" + where);
+            // 审计在界面确实打开后写入，避免把失败或被打断的打开记成一次成功查看
             ContainerSnapshots.audit(plugin, player, targetLocation, blockType,
                 fullName, auditEnabled, auditFileEnabled);
             ViewSession session = ViewSession.create(targetLocation, viewInv);
@@ -151,6 +153,13 @@ public final class FoliaCompat {
                 }
                 ContainerSnapshots.ReadResult fresh = ContainerSnapshots.read(targetLocation);
                 runOnPlayer(plugin, player, () -> {
+                    if (SessionGuard.shouldStop(player, false, plugin.getConfig())) {
+                        player.closeInventory();
+                        player.sendMessage(SessionGuard.revokeMessage(false));
+                        ViewSession.close(player.getUniqueId());
+                        task.cancel();
+                        return;
+                    }
                     if (!ViewSession.applyRefresh(player, session, fresh)) {
                         task.cancel();
                     }
@@ -186,12 +195,13 @@ public final class FoliaCompat {
      *
      * <p>公开方法签名只含 Bukkit / JDK 类型。被查看目标离线时直接提示查看者。</p>
      *
-     * @param opener 在查看者线程打开视图的回调，收到已建好的只读视图与快照
+     * <p>界面由 {@link PlayerViews#openSnapshot} 在查看者线程打开（此处已由
+     * {@link #runOnPlayer} 保证线程归属），因此不再额外传入「打开回调」——
+     * 曾经多调一次 {@code openInventory} 会为一个界面触发多余的关闭事件。</p>
      */
     public static void openPlayerView(JavaPlugin plugin, Player viewer,
             java.util.UUID targetId, boolean enderChest, boolean auditEnabled,
-            boolean auditFileEnabled, int refreshTicks,
-            ServerCompat.FoliaPlayerOpener opener) {
+            boolean auditFileEnabled, int refreshTicks) {
         Player target = Bukkit.getPlayer(targetId);
         if (target == null || !target.isOnline()) {
             viewer.sendMessage("§c目标玩家不在线");
@@ -211,7 +221,9 @@ public final class FoliaCompat {
             runOnPlayer(plugin, viewer, () -> {
                 Inventory viewInv = PlayerViews.openSnapshot(plugin, viewer, snapshot,
                     auditEnabled, auditFileEnabled);
-                opener.open(viewInv, snapshot);
+                if (viewInv == null) {
+                    return;
+                }
                 ViewSession session = ViewSession.createForPlayer(viewInv, targetId);
                 if (refreshTicks > 0) {
                     session = session.withCanceller(schedulePlayerRefresh(plugin, viewer,
@@ -272,6 +284,13 @@ public final class FoliaCompat {
                 runOnPlayer(plugin, viewer, () -> {
                     ViewSession current = ViewSession.get(viewer.getUniqueId());
                     if (current == null || current.view() != viewInv) {
+                        task.cancel();
+                        return;
+                    }
+                    if (SessionGuard.shouldStop(viewer, true, plugin.getConfig())) {
+                        viewer.closeInventory();
+                        viewer.sendMessage(SessionGuard.revokeMessage(true));
+                        ViewSession.close(viewer.getUniqueId());
                         task.cancel();
                         return;
                     }

@@ -43,7 +43,10 @@ public final class PlayerViews {
      * 以快照打开只读视图并记审计。必须在查看者（viewer）的玩家线程执行。
      * 刷新会话由调用方按各自调度方式注册，本方法只负责首次打开。
      *
-     * <p>审计在界面真正打开之后才写入，避免把失败或被打断的打开记成一次成功查看。</p>
+     * <p>审计在界面确实打开之后才写入：既覆盖抛异常的情况，也覆盖别的插件取消
+     * {@code InventoryOpenEvent} 导致界面没打开的情况，避免记成一次成功查看。</p>
+     *
+     * @return 真正打开的只读库存；被拦截未打开时返回 null（调用方不注册会话）
      */
     public static Inventory openSnapshot(JavaPlugin plugin, Player viewer, Snapshot snapshot,
             boolean auditEnabled, boolean auditFileEnabled) {
@@ -53,6 +56,10 @@ public final class PlayerViews {
         viewInv.setContents(snapshot.contents());
 
         viewer.openInventory(viewInv);
+        if (viewer.getOpenInventory().getTopInventory() != viewInv) {
+            viewer.sendMessage("§c只读视图未能打开（可能被其它插件拦截）");
+            return null;
+        }
         viewer.sendMessage("§a已打开 " + ownerName + " 的" + snapshot.label() + "只读视图");
 
         if (auditEnabled || auditFileEnabled) {

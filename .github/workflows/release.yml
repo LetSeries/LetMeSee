@@ -36,13 +36,16 @@ jobs:
         id: version
         run: |
           # 版本号以构建产物为准：即使 build.gradle.kts 的写法变了也不会解析错
-          JAR=$(ls build/libs/letmesee-*.jar | head -1)
-          if [ -z "$JAR" ]; then
-            echo "未找到构建产物 build/libs/letmesee-*.jar"
+          JARS=$(ls build/libs/letmesee-*.jar 2>/dev/null || true)
+          COUNT=$(printf '%s\n' "$JARS" | grep -c . || true)
+          if [ "$COUNT" -ne 1 ]; then
+            echo "期望恰好一个构建产物，实际 $COUNT 个：$JARS"
             exit 1
           fi
+          JAR="$JARS"
+          # 兼容 version: 1.2.3 / version: "1.2.3" / version: '1.2.3'
           VERSION=$(unzip -p "$JAR" plugin.yml \
-            | sed -n 's/^version:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' \
+            | sed -n "s/^version:[[:space:]]*[\"']\{0,1\}\([^\"']*\)[\"']\{0,1\}[[:space:]]*$/\1/p" \
             | head -1)
           if [ -z "$VERSION" ]; then
             echo "无法从 $JAR 的 plugin.yml 解析版本号"

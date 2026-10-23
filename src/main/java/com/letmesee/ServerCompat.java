@@ -94,11 +94,7 @@ public final class ServerCompat {
         try {
             Method method = FoliaMethods.openContainer();
             method.invoke(null, plugin, player, targetLocation, auditEnabled,
-                auditFileEnabled, refreshTicks,
-                (FoliaOpener) (viewInv, plainName, where) -> {
-                    player.openInventory(viewInv);
-                    player.sendMessage("§a已打开 " + plainName + " 的只读视图 §7" + where);
-                });
+                auditFileEnabled, refreshTicks);
         } catch (ReflectiveOperationException e) {
             plugin.getLogger().warning("[LetMeSee] Folia 模式进入失败，已取消本次查看: " + e);
             player.sendMessage("§c打开只读视图失败，请稍后重试");
@@ -122,8 +118,7 @@ public final class ServerCompat {
                     if (cached == null) {
                         cached = Class.forName("com.letmesee.FoliaCompat").getMethod(
                             "openContainer", JavaPlugin.class, Player.class,
-                            Location.class, boolean.class, boolean.class, int.class,
-                            FoliaOpener.class);
+                            Location.class, boolean.class, boolean.class, int.class);
                         openContainer = cached;
                     }
                 }
@@ -140,19 +135,13 @@ public final class ServerCompat {
                         cached = Class.forName("com.letmesee.FoliaCompat").getMethod(
                             "openPlayerView", JavaPlugin.class, Player.class,
                             java.util.UUID.class, boolean.class, boolean.class,
-                            boolean.class, int.class, FoliaPlayerOpener.class);
+                            boolean.class, int.class);
                         openPlayerView = cached;
                     }
                 }
             }
             return cached;
         }
-    }
-
-    /** 在玩家线程打开只读视图的回调（签名单含 Bukkit/JDK 类型）。 */
-    @FunctionalInterface
-    public interface FoliaOpener {
-        void open(org.bukkit.inventory.Inventory viewInv, String plainName, String where);
     }
 
     /**
@@ -165,19 +154,10 @@ public final class ServerCompat {
         try {
             Method method = FoliaMethods.openPlayerView();
             method.invoke(null, plugin, viewer, targetId, enderChest, auditEnabled,
-                auditFileEnabled, refreshTicks, (FoliaPlayerOpener) (viewInv, snapshot) -> {
-                    viewer.openInventory(viewInv);
-                });
+                auditFileEnabled, refreshTicks);
         } catch (ReflectiveOperationException e) {
             plugin.getLogger().warning("[LetMeSee] Folia 玩家视图进入失败: " + e);
             viewer.sendMessage("§c打开只读视图失败，请稍后重试");
         }
-    }
-
-    /** 玩家库存视图打开回调（签名单含 Bukkit/JDK 类型）。 */
-    @FunctionalInterface
-    public interface FoliaPlayerOpener {
-        void open(org.bukkit.inventory.Inventory viewInv,
-            com.letmesee.PlayerViews.Snapshot snapshot);
     }
 }

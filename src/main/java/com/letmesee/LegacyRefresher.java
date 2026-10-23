@@ -36,10 +36,14 @@ public final class LegacyRefresher {
         viewInv.setContents(result.contents());
 
         player.openInventory(viewInv);
+        if (player.getOpenInventory().getTopInventory() != viewInv) {
+            player.sendMessage("§c只读视图未能打开（可能被其它插件拦截）");
+            return;
+        }
         player.sendMessage("§a已打开 " + containerName + " 的只读视图 §7"
             + ContainerSnapshots.describe(targetLocation));
 
-        // 审计在界面真正打开后写入，避免把失败或被打断的打开记成一次成功查看
+        // 审计在界面确实打开后写入，避免把失败或被打断的打开记成一次成功查看
         ContainerSnapshots.audit(plugin, player, targetLocation, result.blockType(),
             result.fullName(), auditEnabled, auditFileEnabled);
 
@@ -68,12 +72,25 @@ public final class LegacyRefresher {
                 cancelQuietly(self);
                 return;
             }
+            // 权限被撤销或功能被关闭后，已打开的视图必须立刻停下
+            if (SessionGuard.shouldStop(player, false, plugin.getConfig())) {
+                endSession(player, self, SessionGuard.revokeMessage(false));
+                return;
+            }
             ContainerSnapshots.ReadResult fresh = ContainerSnapshots.read(targetLocation);
             if (!ViewSession.applyRefresh(player, current, fresh)) {
                 cancelQuietly(self);
             }
         }, refreshTicks, refreshTicks));
         return () -> cancelQuietly(ref.get());
+    }
+
+    /** 结束会话：关界面、提示、清理并取消定时任务。必须在玩家线程调用。 */
+    private static void endSession(Player player, BukkitTask task, String message) {
+        player.closeInventory();
+        player.sendMessage(message);
+        ViewSession.close(player.getUniqueId());
+        cancelQuietly(task);
     }
 
     /** 静默取消任务，null 安全，卸载期失败可忽略。 */
@@ -97,6 +114,9 @@ public final class LegacyRefresher {
         PlayerViews.Snapshot snapshot = PlayerViews.snapshot(target, enderChest);
         Inventory viewInv = PlayerViews.openSnapshot(plugin, viewer, snapshot,
             auditEnabled, auditFileEnabled);
+        if (viewInv == null) {
+            return;
+        }
 
         ViewSession.register(viewer,
             ViewSession.createForPlayer(viewInv, target.getUniqueId())
@@ -117,6 +137,11 @@ public final class LegacyRefresher {
             BukkitTask self = ref.get();
             if (current == null || current.view() != viewInv) {
                 cancelQuietly(self);
+                return;
+            }
+            // 权限被撤销或功能被关闭后，已打开的视图必须立刻停下
+            if (SessionGuard.shouldStop(viewer, true, plugin.getConfig())) {
+                endSession(viewer, self, SessionGuard.revokeMessage(true));
                 return;
             }
             Player online = Bukkit.getPlayer(target.getUniqueId());

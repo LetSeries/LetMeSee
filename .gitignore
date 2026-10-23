@@ -1,6 +1,7 @@
 .gradle/
+# 构建产物：忽略整个 build/ 目录（注意 git 无法重新包含被忽略目录内的文件，
+# 所以这里不再写 "!build/libs/*.jar" 这种无效规则；jar 通过 Release 分发）
 build/
-!build/libs/*.jar
 # 本地构建工具链（Gradle 发行版与缓存），不入库
 .build-tools/
 # Wrapper jar is not tracked; CI installs Gradle 8.10 itself.

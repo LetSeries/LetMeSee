@@ -135,6 +135,29 @@ public final class ContainerSnapshots {
     }
 
     /**
+     * 去掉旧式 {@code §} 颜色/格式代码。
+     *
+     * <p>容器名由玩家可控（在铁砧里改名的潜影盒即可），直接拼进标题和聊天消息会让
+     * 普通玩家重绘管理员的「[只读]」标签、伪造容器身份。展示层统一先清洗；
+     * 审计记录保留完整原名，不受影响。</p>
+     */
+    public static String stripFormatting(String text) {
+        if (text == null || text.indexOf('\u00A7') < 0) {
+            return text;
+        }
+        StringBuilder out = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == '\u00A7' && i + 1 < text.length()) {
+                i++;
+                continue;
+            }
+            out.append(ch);
+        }
+        return out.toString();
+    }
+
+    /**
      * 截断过长的展示名，避免只读视图标题在客户端显示异常。
      * 审计日志记录的是完整名称，不受影响。
      */

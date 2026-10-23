@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.letmesee"
-version = "1.2.3"
+version = "1.2.4"
 
 repositories {
     mavenCentral()
@@ -30,6 +30,11 @@ tasks.test {
 
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+}
+
+// 源码里有大量中文提示语，显式固定编码，避免受运行环境默认编码影响
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
 }
 
 tasks {
@@ -61,4 +66,24 @@ val verifyJarContents by tasks.registering {
 
 tasks.named("check") {
     dependsOn(verifyJarContents)
+}
+
+// build.ps1 自己维护了一份依赖清单，最容易漂移的是 paper-api 版本号：
+// 两处不一致会「编译通过但对着另一套 API」。这里强制两边保持同步。
+val verifyDependencyPins by tasks.registering {
+    val gradleFile = layout.projectDirectory.file("build.gradle.kts").asFile
+    val scriptFile = layout.projectDirectory.file("build.ps1").asFile
+    inputs.files(gradleFile, scriptFile)
+    doLast {
+        val pin = Regex("""paper-api:([0-9][^"')\s]*)""")
+            .find(gradleFile.readText())?.groupValues?.get(1)
+            ?: error("无法从 build.gradle.kts 解析 paper-api 版本")
+        check(scriptFile.readText().contains("\"$pin\"")) {
+            "build.ps1 中的 paper-api 版本与 build.gradle.kts 不一致（应为 $pin）"
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verifyDependencyPins)
 }
